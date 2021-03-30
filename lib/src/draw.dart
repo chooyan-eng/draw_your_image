@@ -2,6 +2,9 @@ part of draw_your_image;
 
 /// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {
+  /// A controller to call drawing actions.
+  final DrawController? controller;
+
   /// [Color] for background of canvas.
   final Color backgroundColor;
 
@@ -17,6 +20,7 @@ class Draw extends StatefulWidget {
 
   const Draw({
     Key? key,
+    this.controller,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
@@ -30,6 +34,15 @@ class Draw extends StatefulWidget {
 class _DrawState extends State<Draw> {
   // late Size _canvasSize;
   final _strokes = <_Stroke>[];
+
+  @override
+  void initState() {
+    widget.controller?._delegate = _DrawControllerDelegate()
+      ..onConvertToPng = () {
+        // currently do nothing.
+      };
+    super.initState();
+  }
 
   void _start(double startX, double startY) {
     _strokes.add(
