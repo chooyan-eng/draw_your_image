@@ -1,3 +1,7 @@
+## [0.0.6] - 2021.03.31
+
+* Add undo / redo features
+
 ## [0.0.5] - 2021.03.30
 
 * Update `README.md`
