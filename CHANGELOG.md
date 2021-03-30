@@ -1,3 +1,7 @@
+## [0.0.4] - 2021.03.30
+
+* Add demo to `README.md`
+
 ## [0.0.3] - 2021.03.30
 
 * Add configuration for colors and stroke width
