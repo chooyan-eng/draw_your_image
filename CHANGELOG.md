@@ -1,3 +1,7 @@
-## [0.0.1] - TODO: Add release date.
+## [0.0.2] - 2021.03.30
 
-* TODO: Describe initial release.
+* Draw only black strokes.
+
+## [0.0.1] - 2021.03.30
+
+* Draw only black strokes.

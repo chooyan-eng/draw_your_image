@@ -1,23 +1,49 @@
 part of draw_your_image;
 
+/// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {
+  /// [Color] for background of canvas.
+  final Color backgroundColor;
+
+  /// [Color] of strokes as an initial configuration.
+  final Color strokeColor;
+
+  /// Width of strokes
+  final double strokeWidth;
+
+  const Draw({
+    Key? key,
+    this.backgroundColor = Colors.white,
+    this.strokeColor = Colors.black,
+    this.strokeWidth = 4,
+  }) : super(key: key);
+
   @override
   _DrawState createState() => _DrawState();
 }
 
 class _DrawState extends State<Draw> {
-  var _currentColor = Colors.black;
-  var _currentWidth = 4.0;
+  late Color _backgroundColor;
+  late Color _strokeColor;
+  late double _strokeWidth;
 
-  final _strokes = <Stroke>[];
+  // late Size _canvasSize;
+  final _strokes = <_Stroke>[];
 
-  late Size _canvasSize;
+  @override
+  void initState() {
+    _backgroundColor = widget.backgroundColor;
+    _strokeColor = widget.strokeColor;
+    _strokeWidth = widget.strokeWidth;
+
+    super.initState();
+  }
 
   void _start(double startX, double startY) {
     _strokes.add(
-      Stroke(
-        color: _currentColor,
-        width: _currentWidth,
+      _Stroke(
+        color: _strokeColor,
+        width: _strokeWidth,
       ),
     );
     _strokes.last.path.moveTo(startX, startY);
@@ -47,9 +73,9 @@ class _DrawState extends State<Draw> {
         },
         child: LayoutBuilder(
           builder: (context, constraints) {
-            _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+            // _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
             return CustomPaint(
-              painter: FreehandPainter(_strokes),
+              painter: _FreehandPainter(_strokes, _backgroundColor),
             );
           },
         ),
@@ -58,10 +84,15 @@ class _DrawState extends State<Draw> {
   }
 }
 
-class FreehandPainter extends CustomPainter {
-  final List<Stroke> strokes;
+/// Subclass of [CustomPainter] to paint strokes
+class _FreehandPainter extends CustomPainter {
+  final List<_Stroke> strokes;
+  final Color backgroundColor;
 
-  FreehandPainter(this.strokes);
+  _FreehandPainter(
+    this.strokes,
+    this.backgroundColor,
+  );
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -86,12 +117,13 @@ class FreehandPainter extends CustomPainter {
   }
 }
 
-class Stroke {
+/// Data class representing strokes
+class _Stroke {
   final path = Path();
   final Color color;
   final double width;
 
-  Stroke({
+  _Stroke({
     this.color = Colors.black,
     this.width = 4,
   });
