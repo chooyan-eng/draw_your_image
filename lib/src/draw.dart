@@ -23,27 +23,14 @@ class Draw extends StatefulWidget {
 }
 
 class _DrawState extends State<Draw> {
-  late Color _backgroundColor;
-  late Color _strokeColor;
-  late double _strokeWidth;
-
   // late Size _canvasSize;
   final _strokes = <_Stroke>[];
-
-  @override
-  void initState() {
-    _backgroundColor = widget.backgroundColor;
-    _strokeColor = widget.strokeColor;
-    _strokeWidth = widget.strokeWidth;
-
-    super.initState();
-  }
 
   void _start(double startX, double startY) {
     _strokes.add(
       _Stroke(
-        color: _strokeColor,
-        width: _strokeWidth,
+        color: widget.strokeColor,
+        width: widget.strokeWidth,
       ),
     );
     _strokes.last.path.moveTo(startX, startY);
@@ -75,7 +62,7 @@ class _DrawState extends State<Draw> {
           builder: (context, constraints) {
             // _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
             return CustomPaint(
-              painter: _FreehandPainter(_strokes, _backgroundColor),
+              painter: _FreehandPainter(_strokes, widget.backgroundColor),
             );
           },
         ),
