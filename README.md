@@ -2,6 +2,10 @@
 
 draw_your_image is a Flutter package for drawing picture with fingers.
 
+# Demo
+
+![Demo](./assets/draw_sample.gif)
+
 # Usage
 
 ## Basic
