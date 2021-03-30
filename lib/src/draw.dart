@@ -11,11 +11,16 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
+  /// Callback which is called when [Canvas] is converted to image data.
+  /// See [DrawController] to check how to convert.
+  final ValueChanged<Uint8List>? onConvert;
+
   const Draw({
     Key? key,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
+    this.onConvert,
   }) : super(key: key);
 
   @override
