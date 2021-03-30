@@ -1,5 +1,8 @@
 part of draw_your_image;
 
+typedef HistoryChanged = void Function(
+    bool isUndoAvailable, bool isRedoAvailable);
+
 /// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {
   /// A controller to call drawing actions.
@@ -14,9 +17,13 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
-  /// Callback which is called when [Canvas] is converted to image data.
+  /// Callback called when [Canvas] is converted to image data.
   /// See [DrawController] to check how to convert.
   final ValueChanged<Uint8List>? onConvert;
+
+  /// Callback called when history is changed.
+  /// This callback exposes if undo / redo is available.
+  final HistoryChanged? onHistoryChange;
 
   const Draw({
     Key? key,
@@ -25,6 +32,7 @@ class Draw extends StatefulWidget {
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
     this.onConvert,
+    this.onHistoryChange,
   }) : super(key: key);
 
   @override
@@ -32,6 +40,8 @@ class Draw extends StatefulWidget {
 }
 
 class _DrawState extends State<Draw> {
+  final _undoHistory = <_Stroke>[];
+
   // late Size _canvasSize;
   final _strokes = <_Stroke>[];
 
@@ -40,8 +50,32 @@ class _DrawState extends State<Draw> {
     widget.controller?._delegate = _DrawControllerDelegate()
       ..onConvertToPng = () {
         // currently do nothing.
+      }
+      ..onUndo = () {
+        if (_strokes.isEmpty) {
+          return false;
+        }
+        setState(() {
+          _undoHistory.add(_strokes.removeLast());
+        });
+        _callHistoryChanged();
+        return true;
+      }
+      ..onRedo = () {
+        if (_undoHistory.isEmpty) {
+          return false;
+        }
+        setState(() {
+          _strokes.add(_undoHistory.removeLast());
+        });
+        _callHistoryChanged();
+        return false;
       };
     super.initState();
+  }
+
+  void _callHistoryChanged() {
+    widget.onHistoryChange?.call(_strokes.isNotEmpty, _undoHistory.isNotEmpty);
   }
 
   void _start(double startX, double startY) {
@@ -52,6 +86,8 @@ class _DrawState extends State<Draw> {
       ),
     );
     _strokes.last.path.moveTo(startX, startY);
+    _undoHistory.clear();
+    _callHistoryChanged();
   }
 
   void _add(double x, double y) {
