@@ -4,7 +4,7 @@ draw_your_image is a Flutter package for drawing picture with fingers.
 
 # Demo
 
-![Demo](./assets/draw_sample.gif)
+![Demo](https://github.com/chooyan-eng/draw_your_image/raw/main/assets/draw_sample.gif)
 
 # Usage
 
@@ -24,3 +24,5 @@ Widget build(BuildContext context) {
 ```
 
 `Crop` widget would display a simple canvas which users can draw whatever they want with given `strokeColor` and `strokeWidth`.
+
+If you change colors or width, you can simply manage states representing them in your widgets, maybe `StatefulWidgets`, and path it to the properties of `Draw`.
