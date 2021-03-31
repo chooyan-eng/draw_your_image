@@ -1,3 +1,6 @@
+## [0.1.0] - 2021.03.31
+* Add clear feature
+
 ## [0.0.7] - 2021.03.31
 
 * Add erase feature

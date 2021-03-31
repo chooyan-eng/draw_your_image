@@ -49,3 +49,4 @@ For `undo()`, `redo()` or other actions, pass instance of `DrawController` and p
 
 - `undo()` will undo the last stroke. It returns `false` if no stroke can be performed.
 - `redo()` will redo the last performed undo stroke. It returns `false` if no stroke can be performed.
+- `clear()` will clear all the strokes. This action can be undo with `undo()`.
