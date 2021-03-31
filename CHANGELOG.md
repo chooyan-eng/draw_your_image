@@ -1,4 +1,9 @@
+## [0.2.0] - 2021.03.31
+
+* Add feature of converting canvas to image data
+
 ## [0.1.0] - 2021.03.31
+
 * Add clear feature
 
 ## [0.0.7] - 2021.03.31
