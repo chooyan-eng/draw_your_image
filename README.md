@@ -6,6 +6,16 @@ draw_your_image is a Flutter package for drawing picture with fingers.
 
 ![Demo](https://github.com/chooyan-eng/draw_your_image/raw/main/assets/draw_sample.gif)
 
+# Features
+
+- Configuration of any __background color__
+- Configuration of any __stroke colors__
+- Configuration of __stroke width__
+- __Undo / Redo__
+- __Clear__ all strokes
+- Erasor mode
+- __Convert canvas to image data__ with PNG format
+
 # Note
 
 Though this package is available with a couple of features, it's still under development. Any feedbacks or bug reports, and off course Pull Requests, are welcome. Feel free to visit the GitHub repository below.
