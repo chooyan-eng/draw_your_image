@@ -50,12 +50,39 @@ class _DrawState extends State<Draw> {
   // late Size _canvasSize;
   final _strokes = <_Stroke>[];
 
+  // cached current canvas size
+  late Size _canvasSize;
+
+  // convert current canvas to png image data.
+  Future<void> _convertToPng() async {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+
+    // Emulate painting using _FreehandPainter
+    // recorder will record this painting
+    _FreehandPainter(
+      _strokes,
+      widget.backgroundColor,
+    ).paint(canvas, _canvasSize);
+
+    // Stop emulating and convert to Image
+    final result = await recorder
+        .endRecording()
+        .toImage(_canvasSize.width.floor(), _canvasSize.height.floor());
+
+    // Cast image data to byte array with converting to png format
+    final converted = (await result.toByteData(format: ImageByteFormat.png))!
+        .buffer
+        .asUint8List();
+
+    // callback
+    widget.onConvert?.call(converted);
+  }
+
   @override
   void initState() {
     widget.controller?._delegate = _DrawControllerDelegate()
-      ..onConvertToPng = () {
-        // currently do nothing.
-      }
+      ..onConvertToPng = _convertToPng
       ..onUndo = () {
         if (_undoHistory.isEmpty) return false;
 
@@ -148,7 +175,7 @@ class _DrawState extends State<Draw> {
         },
         child: LayoutBuilder(
           builder: (context, constraints) {
-            // _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+            _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
             return CustomPaint(
               painter: _FreehandPainter(_strokes, widget.backgroundColor),
             );
