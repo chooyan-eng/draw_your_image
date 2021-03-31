@@ -4,10 +4,10 @@ part of draw_your_image;
 class DrawController {
   late _DrawControllerDelegate _delegate;
 
-  /// Convert current [Canvas] into png image data.
+  /// Convert current [Canvas] into image data with png format.
   /// This method returns immediately without waiting for convert.
   /// You can obtain converted image data via [onConvert] property of [Crop].
-  void convertToPng() => _delegate.onConvertToPng();
+  void convertToImage() => _delegate.onConvertToImage();
 
   /// Undo last stroke
   /// Return [false] if there is no stroke to undo, otherwise return [true].
@@ -22,7 +22,7 @@ class DrawController {
 }
 
 class _DrawControllerDelegate {
-  late VoidCallback onConvertToPng;
+  late VoidCallback onConvertToImage;
 
   late bool Function() onUndo;
 

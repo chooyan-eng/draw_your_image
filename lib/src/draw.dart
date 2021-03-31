@@ -22,7 +22,7 @@ class Draw extends StatefulWidget {
 
   /// Callback called when [Canvas] is converted to image data.
   /// See [DrawController] to check how to convert.
-  final ValueChanged<Uint8List>? onConvert;
+  final ValueChanged<Uint8List>? onConvertImage;
 
   /// Callback called when history is changed.
   /// This callback exposes if undo / redo is available.
@@ -35,7 +35,7 @@ class Draw extends StatefulWidget {
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
     this.isErasing = false,
-    this.onConvert,
+    this.onConvertImage,
     this.onHistoryChange,
   }) : super(key: key);
 
@@ -76,13 +76,13 @@ class _DrawState extends State<Draw> {
         .asUint8List();
 
     // callback
-    widget.onConvert?.call(converted);
+    widget.onConvertImage?.call(converted);
   }
 
   @override
   void initState() {
     widget.controller?._delegate = _DrawControllerDelegate()
-      ..onConvertToPng = _convertToPng
+      ..onConvertToImage = _convertToPng
       ..onUndo = () {
         if (_undoHistory.isEmpty) return false;
 

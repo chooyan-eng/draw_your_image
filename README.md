@@ -25,13 +25,16 @@ final _controller = DrawController();
 
 @override
 Widget build(BuildContext context) {
-    return Draw(
-        controller: _controller,
-        backgroundColor: Colors.blue.shade50,
-        strokeColor: Colors.red,
-        strokeWidth: 8,
-        isErasing: false,
-    );
+  return Draw(
+    controller: _controller,
+    backgroundColor: Colors.blue.shade50,
+    strokeColor: Colors.red,
+    strokeWidth: 8,
+    isErasing: false,
+    onConvertImage: (imageData) {
+      // do something with imageData
+    }
+  );
 }
 ```
 
@@ -50,3 +53,4 @@ For `undo()`, `redo()` or other actions, pass instance of `DrawController` and p
 - `undo()` will undo the last stroke. It returns `false` if no stroke can be performed.
 - `redo()` will redo the last performed undo stroke. It returns `false` if no stroke can be performed.
 - `clear()` will clear all the strokes. This action can be undo with `undo()`.
+- `convertToImage()` will convert current canvas to image data with png format. You can obtain converted data via `onConvertImage` callback of `Draw`.
