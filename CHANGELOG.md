@@ -1,3 +1,7 @@
+## [0.0.7] - 2021.03.31
+
+* Add erase feature
+
 ## [0.0.6] - 2021.03.31
 
 * Add undo / redo features

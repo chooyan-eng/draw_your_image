@@ -17,6 +17,9 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
+  /// Flag for erase mode
+  final bool isErasing;
+
   /// Callback called when [Canvas] is converted to image data.
   /// See [DrawController] to check how to convert.
   final ValueChanged<Uint8List>? onConvert;
@@ -31,6 +34,7 @@ class Draw extends StatefulWidget {
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
+    this.isErasing = false,
     this.onConvert,
     this.onHistoryChange,
   }) : super(key: key);
@@ -83,6 +87,7 @@ class _DrawState extends State<Draw> {
       _Stroke(
         color: widget.strokeColor,
         width: widget.strokeWidth,
+        erase: widget.isErasing,
       ),
     );
     _strokes.last.path.moveTo(startX, startY);
@@ -138,18 +143,23 @@ class _FreehandPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = Colors.white,
+      Paint()..color = backgroundColor,
     );
+
+    canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
     for (final stroke in strokes) {
       final paint = Paint()
         ..strokeWidth = stroke.width
-        ..color = stroke.color
+        ..color = stroke.erase ? Colors.transparent : stroke.color
         ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke;
+        ..style = PaintingStyle.stroke
+        ..blendMode = stroke.erase ? BlendMode.clear : BlendMode.srcOver;
       canvas.drawPath(stroke.path, paint);
     }
+    canvas.restore();
   }
 
   @override
@@ -163,9 +173,11 @@ class _Stroke {
   final path = Path();
   final Color color;
   final double width;
+  final bool erase;
 
   _Stroke({
     this.color = Colors.black,
     this.width = 4,
+    this.erase = false,
   });
 }

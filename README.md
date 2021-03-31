@@ -30,11 +30,14 @@ Widget build(BuildContext context) {
         backgroundColor: Colors.blue.shade50,
         strokeColor: Colors.red,
         strokeWidth: 8,
+        isErasing: false,
     );
 }
 ```
 
 `Draw` widget would display a simple canvas which users can draw whatever they want with given `strokeColor` and `strokeWidth`.
+
+`isErasing` is a flag for erasing drawn strokes. If `true`, new strokes will erase drawn strokes.
 
 If you change colors or width, you can simply manage states representing them in your widgets, maybe `StatefulWidgets`, and path it to the properties of `Draw`.
 
