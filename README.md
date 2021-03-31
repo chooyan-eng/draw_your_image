@@ -39,7 +39,7 @@ Widget build(BuildContext context) {
 
 `isErasing` is a flag for erasing drawn strokes. If `true`, new strokes will erase drawn strokes.
 
-If you change colors or width, you can simply manage states representing them in your widgets, maybe `StatefulWidgets`, and path it to the properties of `Draw`.
+If you wish to change colors or width, you can simply call `setState()` in your `StatefulWidgets` and change properties to pass to `Draw`. Off course other state management systems are available.
 
 For `undo()`, `redo()` or other actions, pass instance of `DrawController` and pass it to `controller` property. See `DrawController` section below for detail.
 

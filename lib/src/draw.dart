@@ -44,7 +44,8 @@ class Draw extends StatefulWidget {
 }
 
 class _DrawState extends State<Draw> {
-  final _undoHistory = <_Stroke>[];
+  final _undoHistory = <History>[];
+  final _redoStack = <History>[];
 
   // late Size _canvasSize;
   final _strokes = <_Stroke>[];
@@ -56,42 +57,70 @@ class _DrawState extends State<Draw> {
         // currently do nothing.
       }
       ..onUndo = () {
-        if (_strokes.isEmpty) {
-          return false;
-        }
-        setState(() {
-          _undoHistory.add(_strokes.removeLast());
-        });
+        if (_undoHistory.isEmpty) return false;
+
+        _redoStack.add(_undoHistory.removeLast()..undo());
         _callHistoryChanged();
         return true;
       }
       ..onRedo = () {
-        if (_undoHistory.isEmpty) {
-          return false;
-        }
+        if (_redoStack.isEmpty) return false;
+
+        _undoHistory.add(_redoStack.removeLast()..redo());
+        _callHistoryChanged();
+        return true;
+      }
+      ..onClear = () {
+        if (_strokes.isEmpty) return;
         setState(() {
-          _strokes.add(_undoHistory.removeLast());
+          final _removedStrokes = <_Stroke>[]..addAll(_strokes);
+          _undoHistory.add(
+            History(
+              undo: () {
+                setState(() => _strokes.addAll(_removedStrokes));
+              },
+              redo: () {
+                setState(() => _strokes.clear());
+              },
+            ),
+          );
+          setState(() {
+            _strokes.clear();
+            _redoStack.clear();
+          });
         });
         _callHistoryChanged();
-        return false;
       };
     super.initState();
   }
 
   void _callHistoryChanged() {
-    widget.onHistoryChange?.call(_strokes.isNotEmpty, _undoHistory.isNotEmpty);
+    widget.onHistoryChange?.call(
+      _undoHistory.isNotEmpty,
+      _redoStack.isNotEmpty,
+    );
   }
 
   void _start(double startX, double startY) {
-    _strokes.add(
-      _Stroke(
-        color: widget.strokeColor,
-        width: widget.strokeWidth,
-        erase: widget.isErasing,
+    final newStroke = _Stroke(
+      color: widget.strokeColor,
+      width: widget.strokeWidth,
+      erase: widget.isErasing,
+    );
+    newStroke.path.moveTo(startX, startY);
+
+    _strokes.add(newStroke);
+    _undoHistory.add(
+      History(
+        undo: () {
+          setState(() => _strokes.remove(newStroke));
+        },
+        redo: () {
+          setState(() => _strokes.add(newStroke));
+        },
       ),
     );
-    _strokes.last.path.moveTo(startX, startY);
-    _undoHistory.clear();
+    _redoStack.clear();
     _callHistoryChanged();
   }
 
@@ -179,5 +208,15 @@ class _Stroke {
     this.color = Colors.black,
     this.width = 4,
     this.erase = false,
+  });
+}
+
+class History {
+  final VoidCallback undo;
+  final VoidCallback redo;
+
+  History({
+    required this.undo,
+    required this.redo,
   });
 }
