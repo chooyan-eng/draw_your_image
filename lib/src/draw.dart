@@ -148,7 +148,6 @@ class _DrawState extends State<Draw> {
       ),
     );
     _redoStack.clear();
-    _callHistoryChanged();
   }
 
   void _add(double x, double y) {
@@ -163,16 +162,30 @@ class _DrawState extends State<Draw> {
       height: double.infinity,
       width: double.infinity,
       child: GestureDetector(
-        onPanStart: (details) => _start(
-          details.localPosition.dx,
-          details.localPosition.dy,
-        ),
+        onTapUp: (details) {
+          _start(
+            details.localPosition.dx,
+            details.localPosition.dy,
+          );
+          _add(
+            details.localPosition.dx,
+            details.localPosition.dy,
+          );
+          _callHistoryChanged();
+        },
+        onPanStart: (details) {
+          _start(
+            details.localPosition.dx,
+            details.localPosition.dy,
+          );
+        },
         onPanUpdate: (details) {
           _add(
             details.localPosition.dx,
             details.localPosition.dy,
           );
         },
+        onPanEnd: (_) => _callHistoryChanged(),
         child: LayoutBuilder(
           builder: (context, constraints) {
             _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
