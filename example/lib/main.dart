@@ -42,7 +42,10 @@ class _MyHomePageState extends State<MyHomePage> {
             const Text('DRAW WHAT YOU WANT!'),
             const SizedBox(height: 120),
             Expanded(
-              child: Draw(),
+              child: Draw(
+                strokeColor: _currentColor,
+                strokeWidth: _currentWidth,
+              ),
             ),
             const SizedBox(height: 32),
             Wrap(
