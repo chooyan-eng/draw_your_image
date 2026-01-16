@@ -28,6 +28,10 @@ class Draw extends StatefulWidget {
   /// This callback exposes if undo / redo is available.
   final HistoryChanged? onHistoryChange;
 
+  /// Function to convert stroke points to Path.
+  /// Defaults to Catmull-Rom spline interpolation.
+  final Path Function(Stroke)? pathConverter;
+
   const Draw({
     Key? key,
     this.controller,
@@ -37,6 +41,7 @@ class Draw extends StatefulWidget {
     this.isErasing = false,
     this.onConvertImage,
     this.onHistoryChange,
+    this.pathConverter,
   }) : super(key: key);
 
   @override
@@ -47,8 +52,8 @@ class _DrawState extends State<Draw> {
   final _undoHistory = <History>[];
   final _redoStack = <History>[];
 
-  // late Size _canvasSize;
-  final _strokes = <_Stroke>[];
+  // Strokes stored as point data
+  final _strokes = <Stroke>[];
 
   // cached current canvas size
   late Size _canvasSize;
@@ -58,11 +63,16 @@ class _DrawState extends State<Draw> {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
 
+    // Get path converter (use default if not specified)
+    final converter =
+        widget.pathConverter ?? SmoothingMode.catmullRom.toConverter();
+
     // Emulate painting using _FreehandPainter
     // recorder will record this painting
     _FreehandPainter(
       _strokes,
       widget.backgroundColor,
+      converter,
     ).paint(canvas, _canvasSize);
 
     // Stop emulating and convert to Image
@@ -100,7 +110,7 @@ class _DrawState extends State<Draw> {
       ..onClear = () {
         if (_strokes.isEmpty) return;
         setState(() {
-          final _removedStrokes = <_Stroke>[]..addAll(_strokes);
+          final _removedStrokes = <Stroke>[]..addAll(_strokes);
           _undoHistory.add(
             History(
               undo: () {
@@ -129,14 +139,17 @@ class _DrawState extends State<Draw> {
   }
 
   void _start(double startX, double startY) {
-    final newStroke = _Stroke(
+    final newStroke = Stroke(
+      points: [Offset(startX, startY)],
       color: widget.strokeColor,
       width: widget.strokeWidth,
-      erase: widget.isErasing,
+      isErasing: widget.isErasing,
     );
-    newStroke.path.moveTo(startX, startY);
 
-    _strokes.add(newStroke);
+    setState(() {
+      _strokes.add(newStroke);
+    });
+
     _undoHistory.add(
       History(
         undo: () {
@@ -153,12 +166,17 @@ class _DrawState extends State<Draw> {
 
   void _add(double x, double y) {
     setState(() {
-      _strokes.last.path.lineTo(x, y);
+      // Add point to the last stroke
+      _strokes.last.points.add(Offset(x, y));
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Get path converter (use default if not specified)
+    final converter =
+        widget.pathConverter ?? SmoothingMode.catmullRom.toConverter();
+
     return SizedBox(
       height: double.infinity,
       width: double.infinity,
@@ -177,7 +195,11 @@ class _DrawState extends State<Draw> {
           builder: (context, constraints) {
             _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
             return CustomPaint(
-              painter: _FreehandPainter(_strokes, widget.backgroundColor),
+              painter: _FreehandPainter(
+                _strokes,
+                widget.backgroundColor,
+                converter,
+              ),
             );
           },
         ),
@@ -188,12 +210,14 @@ class _DrawState extends State<Draw> {
 
 /// Subclass of [CustomPainter] to paint strokes
 class _FreehandPainter extends CustomPainter {
-  final List<_Stroke> strokes;
+  final List<Stroke> strokes;
   final Color backgroundColor;
+  final Path Function(Stroke) pathConverter;
 
   _FreehandPainter(
     this.strokes,
     this.backgroundColor,
+    this.pathConverter,
   );
 
   @override
@@ -207,13 +231,16 @@ class _FreehandPainter extends CustomPainter {
 
     canvas.saveLayer(Rect.fromLTWH(0, 0, size.width, size.height), Paint());
     for (final stroke in strokes) {
+      // Convert stroke points to Path
+      final path = pathConverter(stroke);
+
       final paint = Paint()
         ..strokeWidth = stroke.width
-        ..color = stroke.erase ? Colors.transparent : stroke.color
+        ..color = stroke.isErasing ? Colors.transparent : stroke.color
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke
-        ..blendMode = stroke.erase ? BlendMode.clear : BlendMode.srcOver;
-      canvas.drawPath(stroke.path, paint);
+        ..blendMode = stroke.isErasing ? BlendMode.clear : BlendMode.srcOver;
+      canvas.drawPath(path, paint);
     }
     canvas.restore();
   }
@@ -222,20 +249,6 @@ class _FreehandPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return true;
   }
-}
-
-/// Data class representing strokes
-class _Stroke {
-  final path = Path();
-  final Color color;
-  final double width;
-  final bool erase;
-
-  _Stroke({
-    this.color = Colors.black,
-    this.width = 4,
-    this.erase = false,
-  });
 }
 
 class History {

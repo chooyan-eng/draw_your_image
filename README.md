@@ -15,6 +15,9 @@ draw_your_image is a Flutter package for drawing picture with fingers.
 - __Clear__ all strokes
 - Erasor mode
 - __Convert canvas to image data__ with PNG format
+- __Point-based stroke data__ - Strokes are stored as point arrays (`List<Offset>`)
+- __Customizable path smoothing__ - Built-in Catmull-Rom spline interpolation or custom converters
+- __Resampling utility__ - Resample stroke points for uniform density
 
 # Note
 
@@ -64,3 +67,83 @@ For `undo()`, `redo()` or other actions, pass instance of `DrawController` and p
 - `redo()` will redo the last performed undo stroke. It returns `false` if no stroke can be performed.
 - `clear()` will clear all the strokes. This action can be undo with `undo()`.
 - `convertToImage()` will convert current canvas to image data with png format. You can obtain converted data via `onConvertImage` callback of `Draw`.
+
+## Advanced Features
+
+### Path Smoothing
+
+By default, strokes are smoothed using Catmull-Rom spline interpolation. You can customize this behavior using the `pathConverter` parameter.
+
+#### Using built-in smoothing modes:
+
+```dart
+// Smooth curves (default)
+Draw(
+  pathConverter: SmoothingMode.catmullRom.toConverter(),
+)
+
+// No smoothing (straight lines)
+Draw(
+  pathConverter: SmoothingMode.none.toConverter(),
+)
+```
+
+#### Using custom path converter:
+
+```dart
+Draw(
+  pathConverter: (stroke) {
+    // Custom path generation logic
+    final path = Path();
+    final points = stroke.points;
+    
+    if (points.isNotEmpty) {
+      path.moveTo(points[0].dx, points[0].dy);
+      for (int i = 1; i < points.length; i++) {
+        path.lineTo(points[i].dx, points[i].dy);
+      }
+    }
+    
+    return path;
+  },
+)
+```
+
+### Stroke Data Structure
+
+Strokes are now stored as point data (`Stroke` class) containing:
+- `points`: List of `Offset` representing the stroke path
+- `color`: Stroke color
+- `width`: Stroke width
+- `isErasing`: Whether the stroke is in eraser mode
+
+This structure allows you to:
+- Access and process stroke data independently from UI
+- Apply post-processing like resampling
+- Implement custom rendering logic
+
+### Resampling Utility
+
+The `resamplePoints` function allows you to resample stroke points for uniform density:
+
+```dart
+import 'package:draw_your_image/draw_your_image.dart';
+
+// Resample points with 5.0 pixel spacing
+final originalPoints = [
+  Offset(0, 0),
+  Offset(10, 10),
+  Offset(20, 15),
+  // ... more points
+];
+
+final resampledPoints = resamplePoints(originalPoints, 5.0);
+
+// Use resampled points to create a new stroke
+final newStroke = stroke.copyWith(points: resampledPoints);
+```
+
+This is useful for:
+- Reducing the number of points while maintaining shape
+- Normalizing point density across different drawing speeds
+- Pre-processing data for machine learning or gesture recognition
