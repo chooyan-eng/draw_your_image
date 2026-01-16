@@ -1,12 +1,12 @@
 part of draw_your_image;
 
-typedef HistoryChanged = void Function(
-    bool isUndoAvailable, bool isRedoAvailable);
-
 /// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {
-  /// A controller to call drawing actions.
-  final DrawController? controller;
+  /// List of strokes to be drawn on the canvas.
+  final List<Stroke> strokes;
+
+  /// Callback called when one stroke is completed.
+  final ValueChanged<Stroke> onStrokeDrawn;
 
   /// [Color] for background of canvas.
   final Color backgroundColor;
@@ -20,188 +20,96 @@ class Draw extends StatefulWidget {
   /// Flag for erase mode
   final bool isErasing;
 
-  /// Callback called when [Canvas] is converted to image data.
-  /// See [DrawController] to check how to convert.
-  final ValueChanged<Uint8List>? onConvertImage;
-
-  /// Callback called when history is changed.
-  /// This callback exposes if undo / redo is available.
-  final HistoryChanged? onHistoryChange;
-
   /// Function to convert stroke points to Path.
   /// Defaults to Catmull-Rom spline interpolation.
-  final Path Function(Stroke)? pathConverter;
+  final SmoothingFunc? smoothingFunc;
 
   const Draw({
-    Key? key,
-    this.controller,
+    super.key,
+    required this.strokes,
+    required this.onStrokeDrawn,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
     this.isErasing = false,
-    this.onConvertImage,
-    this.onHistoryChange,
-    this.pathConverter,
-  }) : super(key: key);
+    this.smoothingFunc,
+  });
 
   @override
   _DrawState createState() => _DrawState();
 }
 
 class _DrawState extends State<Draw> {
-  final _undoHistory = <History>[];
-  final _redoStack = <History>[];
+  /// currently drawing stroke
+  Stroke? _currentStroke;
 
-  // Strokes stored as point data
-  final _strokes = <Stroke>[];
+  /// pointer id being used for drawing
+  /// [Draw] only supports single touch drawing
+  int? _activePointerId;
 
-  // cached current canvas size
-  late Size _canvasSize;
-
-  // convert current canvas to png image data.
-  Future<void> _convertToPng() async {
-    final recorder = PictureRecorder();
-    final canvas = Canvas(recorder);
-
-    // Get path converter (use default if not specified)
-    final converter =
-        widget.pathConverter ?? SmoothingMode.catmullRom.toConverter();
-
-    // Emulate painting using _FreehandPainter
-    // recorder will record this painting
-    _FreehandPainter(
-      _strokes,
-      widget.backgroundColor,
-      converter,
-    ).paint(canvas, _canvasSize);
-
-    // Stop emulating and convert to Image
-    final result = await recorder
-        .endRecording()
-        .toImage(_canvasSize.width.floor(), _canvasSize.height.floor());
-
-    // Cast image data to byte array with converting to png format
-    final converted = (await result.toByteData(format: ImageByteFormat.png))!
-        .buffer
-        .asUint8List();
-
-    // callback
-    widget.onConvertImage?.call(converted);
-  }
-
-  @override
-  void initState() {
-    widget.controller?._delegate = _DrawControllerDelegate()
-      ..onConvertToImage = _convertToPng
-      ..onUndo = () {
-        if (_undoHistory.isEmpty) return false;
-
-        _redoStack.add(_undoHistory.removeLast()..undo());
-        _callHistoryChanged();
-        return true;
-      }
-      ..onRedo = () {
-        if (_redoStack.isEmpty) return false;
-
-        _undoHistory.add(_redoStack.removeLast()..redo());
-        _callHistoryChanged();
-        return true;
-      }
-      ..onClear = () {
-        if (_strokes.isEmpty) return;
-        setState(() {
-          final _removedStrokes = <Stroke>[]..addAll(_strokes);
-          _undoHistory.add(
-            History(
-              undo: () {
-                setState(() => _strokes.addAll(_removedStrokes));
-              },
-              redo: () {
-                setState(() => _strokes.clear());
-              },
-            ),
-          );
-          setState(() {
-            _strokes.clear();
-            _redoStack.clear();
-          });
-        });
-        _callHistoryChanged();
-      };
-    super.initState();
-  }
-
-  void _callHistoryChanged() {
-    widget.onHistoryChange?.call(
-      _undoHistory.isNotEmpty,
-      _redoStack.isNotEmpty,
-    );
-  }
-
+  /// start drawing
   void _start(double startX, double startY) {
-    final newStroke = Stroke(
-      points: [Offset(startX, startY)],
-      color: widget.strokeColor,
-      width: widget.strokeWidth,
-      isErasing: widget.isErasing,
-    );
-
     setState(() {
-      _strokes.add(newStroke);
+      _currentStroke = Stroke(
+        points: [Offset(startX, startY)],
+        color: widget.strokeColor,
+        width: widget.strokeWidth,
+        isErasing: widget.isErasing,
+      );
     });
-
-    _undoHistory.add(
-      History(
-        undo: () {
-          setState(() => _strokes.remove(newStroke));
-        },
-        redo: () {
-          setState(() => _strokes.add(newStroke));
-        },
-      ),
-    );
-    _redoStack.clear();
-    _callHistoryChanged();
   }
 
+  /// add point when drawing is ongoing
   void _add(double x, double y) {
-    setState(() {
-      // Add point to the last stroke
-      _strokes.last.points.add(Offset(x, y));
-    });
+    if (_currentStroke != null) {
+      setState(() => _currentStroke!.points.add(Offset(x, y)));
+    }
+  }
+
+  /// complete drawing
+  void _complete() {
+    if (_currentStroke != null) {
+      widget.onStrokeDrawn(_currentStroke!);
+
+      setState(() => _currentStroke = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Get path converter (use default if not specified)
     final converter =
-        widget.pathConverter ?? SmoothingMode.catmullRom.toConverter();
+        widget.smoothingFunc ?? SmoothingMode.catmullRom.converter;
 
-    return SizedBox(
-      height: double.infinity,
-      width: double.infinity,
-      child: GestureDetector(
-        onPanStart: (details) => _start(
-          details.localPosition.dx,
-          details.localPosition.dy,
-        ),
-        onPanUpdate: (details) {
-          _add(
-            details.localPosition.dx,
-            details.localPosition.dy,
-          );
+    /// strokes to paint (including currently drawing stroke)
+    final strokesToPaint = [...widget.strokes, ?_currentStroke];
+
+    return SizedBox.expand(
+      child: Listener(
+        onPointerDown: (event) {
+          if (_activePointerId != null) return;
+          _activePointerId = event.pointer;
+          _start(event.localPosition.dx, event.localPosition.dy);
         },
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            _canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
-            return CustomPaint(
-              painter: _FreehandPainter(
-                _strokes,
-                widget.backgroundColor,
-                converter,
-              ),
-            );
-          },
+        onPointerMove: (event) {
+          if (event.pointer != _activePointerId) return;
+          _add(event.localPosition.dx, event.localPosition.dy);
+        },
+        onPointerUp: (event) {
+          if (_activePointerId != event.pointer) return;
+          _activePointerId = null;
+          _complete();
+        },
+        onPointerCancel: (event) {
+          if (_activePointerId != event.pointer) return;
+          _activePointerId = null;
+          _complete();
+        },
+        child: CustomPaint(
+          painter: _FreehandPainter(
+            strokesToPaint,
+            widget.backgroundColor,
+            converter,
+          ),
         ),
       ),
     );
@@ -214,11 +122,7 @@ class _FreehandPainter extends CustomPainter {
   final Color backgroundColor;
   final Path Function(Stroke) pathConverter;
 
-  _FreehandPainter(
-    this.strokes,
-    this.backgroundColor,
-    this.pathConverter,
-  );
+  _FreehandPainter(this.strokes, this.backgroundColor, this.pathConverter);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -247,16 +151,8 @@ class _FreehandPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return true;
+    return strokes != (oldDelegate as _FreehandPainter).strokes ||
+        pathConverter != oldDelegate.pathConverter ||
+        backgroundColor != oldDelegate.backgroundColor;
   }
-}
-
-class History {
-  final VoidCallback undo;
-  final VoidCallback redo;
-
-  History({
-    required this.undo,
-    required this.redo,
-  });
 }

@@ -34,12 +34,9 @@ Though this package is available with a couple of features, it's still under dev
 The very first step for draw_your_image is to place `Draw` widget at anywhere you want in the widget tree.
 
 ```dart
-final _controller = DrawController();
-
 @override
 Widget build(BuildContext context) {
   return Draw(
-    controller: _controller,
     backgroundColor: Colors.blue.shade50,
     strokeColor: Colors.red,
     strokeWidth: 8,

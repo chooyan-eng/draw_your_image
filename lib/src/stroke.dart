@@ -1,24 +1,25 @@
 part of draw_your_image;
 
-/// ストロークを表すクラス
+/// A data class representing a stroke.
 ///
-/// ストロークは点群（[List<Offset>]）とメタデータ（色、幅、消しゴムフラグ）から構成される。
-/// 点群データは UI とは独立したデータとして扱うことができ、
-/// リサンプリングやスムーズ化などの加工を外部から行うことができる。
+/// This consists of [points] and its metadata ([color], [width], [isErasing] flag).
+///
+/// These data can be treated as data independent of the UI,
+/// and can be processed externally, such as resampling and smoothing.
 class Stroke {
-  /// ストロークを構成する点群
+  /// Points that compose the stroke
   final List<Offset> points;
 
-  /// ストロークの色
+  /// Stroke color
   final Color color;
 
-  /// ストロークの幅
+  /// Stroke width
   final double width;
 
-  /// 消しゴムモードかどうか
+  /// Whether this is an erasing stroke
   final bool isErasing;
 
-  /// ストロークを作成する
+  /// Creates a stroke
   Stroke({
     required this.points,
     required this.color,
@@ -26,23 +27,18 @@ class Stroke {
     this.isErasing = false,
   });
 
-  /// 点群のコピーを返す（外部から変更されないように）
-  List<Offset> getPoints() => List.unmodifiable(points);
-
-  /// 新しい点群やメタデータで新しい Stroke を作成
+  /// Creates a new Stroke with new points or metadata
   ///
-  /// リサンプリングやスムーズ化などの加工を行う際に使用する。
+  /// Used when performing processing such as resampling and smoothing.
   Stroke copyWith({
     List<Offset>? points,
     Color? color,
     double? width,
     bool? isErasing,
-  }) {
-    return Stroke(
-      points: points ?? List.from(this.points),
-      color: color ?? this.color,
-      width: width ?? this.width,
-      isErasing: isErasing ?? this.isErasing,
-    );
-  }
+  }) => Stroke(
+    points: points ?? List.from(this.points),
+    color: color ?? this.color,
+    width: width ?? this.width,
+    isErasing: isErasing ?? this.isErasing,
+  );
 }
