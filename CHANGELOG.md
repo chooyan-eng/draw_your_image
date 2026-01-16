@@ -1,3 +1,9 @@
+## [0.3.0] - 2026.01.16
+
+* (*Breaking) Fully changed API design for smooth integration with your apps
+* Smoothing strokes
+* Enhance user interaction
+
 ## [0.2.0] - 2021.03.31
 
 * Add feature of converting canvas to image data

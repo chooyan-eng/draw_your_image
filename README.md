@@ -1,23 +1,25 @@
 # draw_your_image
 
-draw_your_image is a Flutter package for drawing picture with fingers.
+draw_your_image is a Flutter package for drawing pictures/letters with fingers with `Draw` widget.
 
-# Demo
+`Draw` is just a tiny widget which just feedbacks generated strokes by user's gestures and draws the given `strokes` on their screen.
+
+Although this means all the state management for stroke data, such as undo/redo, clear, or preserving stroke values, is your business, __this approach enables you to seemlessly collaborate with the functionalities of your apps__, such as persistence of the strokes data, integrated undo/redo with other editings, etc.
+
+Also, all the configuration about colors and stroke width, smoothing logics, strokes data can be customized.
+
+# Demos
 
 ![Demo](https://github.com/chooyan-eng/draw_your_image/raw/main/assets/draw_sample.gif)
 
 # Features
 
-- Configuration of any __background color__
-- Configuration of any __stroke colors__
+- Fully declarative
+- Smoothing strokes
+- All the data can be customized on your side
+- Configuration of any __stroke colors__ and __background color__
 - Configuration of __stroke width__
-- __Undo / Redo__
-- __Clear__ all strokes
 - Erasor mode
-- __Convert canvas to image data__ with PNG format
-- __Point-based stroke data__ - Strokes are stored as point arrays (`List<Offset>`)
-- __Customizable path smoothing__ - Built-in Catmull-Rom spline interpolation or custom converters
-- __Resampling utility__ - Resample stroke points for uniform density
 
 # Note
 
@@ -27,69 +29,84 @@ Though this package is available with a couple of features, it's still under dev
 
 # Usage
 
-## Basic
-
-### Draw
+## Draw
 
 The very first step for draw_your_image is to place `Draw` widget at anywhere you want in the widget tree.
 
+The `Draw` requires a parent widget, typically `StatefulWidget`, that manages the stroke state as `Draw` only handles the drawing interaction and draws the given strokes.
+
 ```dart
-@override
-Widget build(BuildContext context) {
-  return Draw(
-    backgroundColor: Colors.blue.shade50,
-    strokeColor: Colors.red,
-    strokeWidth: 8,
-    isErasing: false,
-    onConvertImage: (imageData) {
-      // do something with imageData
-    }
-  );
+class MyDrawingPage extends StatefulWidget {
+  @override
+  _MyDrawingPageState createState() => _MyDrawingPageState();
+}
+
+class _MyDrawingPageState extends State<MyDrawingPage> {
+  List<Stroke> _strokes = []; 
+
+  @override
+  Widget build(BuildContext context) {
+    return Draw(
+      // give back stroke data to Draw
+      strokes: _strokes, 
+      onStrokeDrawn: (stroke) {
+        // Add a drawn stroke to _strokes
+        setState(() {
+          _strokes = [..._strokes, stroke];
+        });
+      },
+      backgroundColor: Colors.blue.shade50,
+      strokeColor: Colors.red,
+      strokeWidth: 8,
+      isErasing: false,
+    );
+  }
 }
 ```
 
-`Draw` widget would display a simple canvas which users can draw whatever they want with given `strokeColor` and `strokeWidth`.
+**Required properties:**
+- `strokes`: List of `Stroke` objects to display on the canvas
+- `onStrokeDrawn`: Callback invoked when a stroke is completed
 
-`isErasing` is a flag for erasing drawn strokes. If `true`, new strokes will erase drawn strokes.
+**Optional properties: **
+- `strokeColor`, `strokeWidth`: `Draw` widget displays a canvas where users can draw with the given configurations.
+- `isErasing`: A flag for erasing drawn strokes. If `true`, new strokes will erase previously drawn strokes. Note that erasing strokes are also represented by `Stroke` and passed via `onStrokeDrawn` callback as well.
 
-If you wish to change colors or width, you can simply call `setState()` in your `StatefulWidgets` and change properties to pass to `Draw`. Off course other state management systems are available.
+If you wish to change colors or width, simply call `setState()` in your `StatefulWidget` and change the properties passed to `Draw`. Other state management systems are also available.
 
-For `undo()`, `redo()` or other actions, pass instance of `DrawController` and pass it to `controller` property. See `DrawController` section below for detail.
+## Path Smoothing
 
-### DrawController
+By default, strokes are smoothed using Catmull-Rom spline interpolation. You can customize this behavior using the `smoothingFunc` parameter.
 
-`DrawController` provides interfaces to control canvas. Below are provided methods
+### Using built-in smoothing modes:
 
-- `undo()` will undo the last stroke. It returns `false` if no stroke can be performed.
-- `redo()` will redo the last performed undo stroke. It returns `false` if no stroke can be performed.
-- `clear()` will clear all the strokes. This action can be undo with `undo()`.
-- `convertToImage()` will convert current canvas to image data with png format. You can obtain converted data via `onConvertImage` callback of `Draw`.
-
-## Advanced Features
-
-### Path Smoothing
-
-By default, strokes are smoothed using Catmull-Rom spline interpolation. You can customize this behavior using the `pathConverter` parameter.
-
-#### Using built-in smoothing modes:
+You can use `SmoothingMode` enum for pre-defined smoothing logics. As `SmoothingMode` has a field of function named `converter`, you can simply pass the function to `smoothingFunc`.
 
 ```dart
 // Smooth curves (default)
 Draw(
-  pathConverter: SmoothingMode.catmullRom.toConverter(),
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  smoothingFunc: SmoothingMode.catmullRom.converter,
 )
 
 // No smoothing (straight lines)
 Draw(
-  pathConverter: SmoothingMode.none.toConverter(),
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  smoothingFunc: SmoothingMode.none.converter,
 )
 ```
 
-#### Using custom path converter:
+### Using custom smoothing function:
+
+Because `smoothingFunc` can receive any functions as long as they apply the type `Path Function(Stroke)`, you can implement your own logic and pass the function here for customizing smoothing logics.
 
 ```dart
 Draw(
-  pathConverter: (stroke) {
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  smoothingFunc: (stroke) {
     // Custom path generation logic
     final path = Path();
     final points = stroke.points;
@@ -106,9 +123,9 @@ Draw(
 )
 ```
 
-### Stroke Data Structure
+## Stroke Data Structure
 
-Strokes are now stored as point data (`Stroke` class) containing:
+Strokes are stored as a list of point and its metadata containing:
 - `points`: List of `Offset` representing the stroke path
 - `color`: Stroke color
 - `width`: Stroke width
