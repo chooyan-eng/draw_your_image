@@ -1,4 +1,6 @@
-part of draw_your_image;
+import 'package:draw_your_image/src/smoothing.dart';
+import 'package:draw_your_image/src/stroke.dart';
+import 'package:flutter/material.dart';
 
 /// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {

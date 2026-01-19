@@ -1,4 +1,4 @@
-part of draw_your_image;
+import 'dart:ui';
 
 /// A data class representing a stroke.
 ///

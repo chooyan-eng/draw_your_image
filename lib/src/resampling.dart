@@ -1,4 +1,4 @@
-part of draw_your_image;
+import 'dart:ui';
 
 /// Extension methods for resampling a list of [Offset] points.
 extension Resampling on List<Offset> {

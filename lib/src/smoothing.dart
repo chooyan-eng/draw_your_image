@@ -1,4 +1,6 @@
-part of draw_your_image;
+import 'dart:ui';
+
+import 'package:draw_your_image/src/stroke.dart';
 
 typedef SmoothingFunc = Path Function(Stroke);
 
