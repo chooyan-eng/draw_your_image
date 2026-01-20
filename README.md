@@ -74,6 +74,85 @@ class _MyDrawingPageState extends State<MyDrawingPage> {
 
 If you wish to change colors or width, simply call `setState()` in your `StatefulWidget` and change the properties passed to `Draw`. Other state management systems are also available.
 
+## Input Device Control
+
+The `onStrokeStarted` callback allows you to control drawing behavior based on input situations, typically input device type (stylus, finger, mouse, etc.). This callback is invoked when a new stroke is about to start, giving you the opportunity to:
+
+- Accept or reject the stroke based on the situation (e.g. accept only styrus)
+- Modify stroke properties (color, width, erasing mode) based on input device
+- Handle multi-touch scenarios by choosing which stroke to continue
+
+**Callback signature:**
+```dart
+Stroke? Function(Stroke newStroke, Stroke? currentStroke)? onStrokeStarted
+```
+
+**Parameters:**
+- `newStroke`: The new stroke being started with initial configuration
+- `currentStroke`: The currently ongoing stroke (if any)
+
+**Return value:**
+`Draw` continues the returned `Stroke`, thus:
+- return `newStroke` to start the new stroke
+- return `currentStroke` to continue the existing stroke (rejecting the new one)
+- return `null` to cancel both strokes
+- return a modified stroke with `newStroke.copyWith(...)` to customize properties
+
+You can use the pre-defined utility functions, `styrusOnlyHandler` or `styrusPriorHandler`, if they fit your needs. Or you can also make your own function.
+
+### Example: Accept only stylus input
+
+```dart
+import 'package:draw_your_image/draw_your_image.dart';
+
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  onStrokeStarted: styrusOnlyHandler,
+)
+```
+
+The `styrusOnlyHandler` utility function only accepts stylus input and automatically sets inverted stylus to erasing mode.
+
+### Example: Prioritize stylus over other inputs
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  onStrokeStarted: styrusPriorHandler,
+)
+```
+
+The `styrusPriorHandler` utility function gives priority to stylus input. If a stylus is already drawing, other input types are ignored.
+
+### Example: Custom handler - Stylus draws black, finger erases
+
+```dart
+Stroke? customHandler(Stroke newStroke, Stroke? currentStroke) {
+  // If stylus is already drawing, continue with it
+  if (currentStroke?.deviceKind == PointerDeviceKind.stylus) {
+    return currentStroke;
+  }
+  
+  // New stroke: stylus draws black, finger erases
+  if (newStroke.deviceKind == PointerDeviceKind.stylus) {
+    return newStroke.copyWith(color: Colors.black, isErasing: false);
+  } else if (newStroke.deviceKind == PointerDeviceKind.touch) {
+    return newStroke.copyWith(isErasing: true);
+  }
+  
+  // Reject other input types
+  return currentStroke;
+}
+
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  onStrokeStarted: customHandler,
+)
+```
+
 ## Path Smoothing
 
 By default, strokes are smoothed using Catmull-Rom spline interpolation. You can customize this behavior using the `smoothingFunc` parameter.

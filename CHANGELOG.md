@@ -1,3 +1,7 @@
+## [0.4.0] - 2026.01.20
+
+* Add `onStrokeStarted` callback for flexible stroke control based on input device type
+
 ## [0.3.0] - 2026.01.16
 
 * (*Breaking) Fully changed API design for smooth integration with your apps
