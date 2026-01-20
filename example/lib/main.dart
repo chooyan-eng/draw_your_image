@@ -2,62 +2,15 @@ import 'dart:ui';
 import 'package:draw_your_image/draw_your_image.dart';
 import 'package:flutter/material.dart';
 
-void main() {
-  runApp(MyApp());
-}
+void main() => runApp(MyApp());
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'onStrokeStarted Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-      ),
+      title: 'draw_your_image Demo',
       home: MyHomePage(),
     );
-  }
-}
-
-/// Drawing mode definition
-enum DrawingMode {
-  stylusOnly,
-  stylusPrior,
-  stylusDrawFingerErase,
-  differentColors,
-  differentWidths,
-}
-
-extension DrawingModeExtension on DrawingMode {
-  String get displayName {
-    switch (this) {
-      case DrawingMode.stylusOnly:
-        return 'Stylus Only';
-      case DrawingMode.stylusPrior:
-        return 'Stylus Priority';
-      case DrawingMode.stylusDrawFingerErase:
-        return 'Stylus Draw / Finger Erase';
-      case DrawingMode.differentColors:
-        return 'Different Colors';
-      case DrawingMode.differentWidths:
-        return 'Different Widths';
-    }
-  }
-
-  String get description {
-    switch (this) {
-      case DrawingMode.stylusOnly:
-        return 'Only accepts stylus input. Finger input is ignored.';
-      case DrawingMode.stylusPrior:
-        return 'Prioritizes stylus. Finger input is ignored while drawing with stylus.';
-      case DrawingMode.stylusDrawFingerErase:
-        return 'Draw with stylus and erase with finger.';
-      case DrawingMode.differentColors:
-        return 'Stylus draws in black, finger draws in red.';
-      case DrawingMode.differentWidths:
-        return 'Stylus draws thin lines, finger draws thick lines.';
-    }
   }
 }
 
@@ -68,146 +21,102 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var _strokes = <Stroke>[];
-  var _currentMode = DrawingMode.stylusOnly;
+  var _redoStack = <Stroke>[];
+  PointerDeviceKind? _currentDevice;
+  PointerDeviceKind? _visibleDevice;
+
+  bool get _canUndo => _strokes.isNotEmpty;
+  bool get _canRedo => _redoStack.isNotEmpty;
+  bool get _isDrawing => _currentDevice != null;
 
   void _clear() {
     setState(() {
       _strokes = [];
+      _redoStack = [];
     });
   }
 
-  /// Returns the stroke handler for the current mode
-  Stroke? Function(Stroke, Stroke?)? _getStrokeHandler() {
-    switch (_currentMode) {
-      case DrawingMode.stylusOnly:
-        return stylusOnlyHandler;
-      case DrawingMode.stylusPrior:
-        return stylusPriorHandler;
-      case DrawingMode.stylusDrawFingerErase:
-        return _stylusDrawFingerEraseHandler;
-      case DrawingMode.differentColors:
-        return _differentColorsHandler;
-      case DrawingMode.differentWidths:
-        return _differentWidthsHandler;
-    }
+  void _undo() {
+    setState(() {
+      final lastStroke = _strokes.removeLast();
+      _redoStack.add(lastStroke);
+    });
   }
 
-  /// Handler for stylus drawing and finger erasing
-  Stroke? _stylusDrawFingerEraseHandler(
-      Stroke newStroke, Stroke? currentStroke) {
-    // Continue current stroke if already drawing
-    if (currentStroke != null) {
-      return currentStroke;
-    }
-
-    // Stylus for normal drawing
-    if (_isStylus(newStroke.deviceKind)) {
-      return newStroke.copyWith(
-        color: Colors.black,
-        width: 4.0,
-        isErasing: false,
-      );
-    }
-
-    // Finger for erasing
-    return newStroke.copyWith(
-      isErasing: true,
-      width: 20.0,
-    );
+  void _redo() {
+    setState(() {
+      final stroke = _redoStack.removeLast();
+      _strokes.add(stroke);
+    });
   }
 
-  /// Handler for different colors by device
-  Stroke? _differentColorsHandler(Stroke newStroke, Stroke? currentStroke) {
-    // Continue current stroke if already drawing
-    if (currentStroke != null) {
-      return currentStroke;
-    }
-
-    // Stylus: black, Finger: red
-    final color = _isStylus(newStroke.deviceKind) ? Colors.black : Colors.red;
-    return newStroke.copyWith(
-      color: color,
-      width: 4.0,
-    );
-  }
-
-  /// Handler for different widths by device
-  Stroke? _differentWidthsHandler(Stroke newStroke, Stroke? currentStroke) {
-    // Continue current stroke if already drawing
-    if (currentStroke != null) {
-      return currentStroke;
-    }
-
-    // Stylus: thin line, Finger: thick line
-    final width = _isStylus(newStroke.deviceKind) ? 2.0 : 8.0;
-    return newStroke.copyWith(
-      color: Colors.black,
-      width: width,
-    );
-  }
-
-  /// Check if the device kind is stylus
-  bool _isStylus(PointerDeviceKind kind) {
-    return kind == PointerDeviceKind.stylus ||
-        kind == PointerDeviceKind.invertedStylus;
-  }
+  MaterialColor get _deviceColor =>
+      _currentDevice == PointerDeviceKind.stylus ? Colors.blue : Colors.green;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('onStrokeStarted Demo'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.clear),
-            onPressed: _strokes.isEmpty ? null : _clear,
-            tooltip: 'Clear',
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text('draw_your_image Demo')),
       body: Column(
         children: [
-          // Mode selection area
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Mode Selection',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(height: 8),
-                DropdownButton<DrawingMode>(
-                  value: _currentMode,
-                  isExpanded: true,
-                  items: DrawingMode.values.map((mode) {
-                    return DropdownMenuItem(
-                      value: mode,
-                      child: Text(mode.displayName),
-                    );
-                  }).toList(),
-                  onChanged: (mode) {
-                    if (mode != null) {
-                      setState(() {
-                        _currentMode = mode;
-                        _strokes = []; // Clear on mode change
-                      });
-                    }
-                  },
-                ),
-                SizedBox(height: 8),
-                Text(
-                  _currentMode.description,
+                  'Show Strokes From:',
                   style: TextStyle(
                     fontSize: 14,
+                    fontWeight: FontWeight.bold,
                     color: Colors.grey[700],
                   ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  spacing: 16,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FilterChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit, size: 32),
+                          SizedBox(width: 8),
+                          Text('Stylus', style: TextStyle(fontSize: 24)),
+                        ],
+                      ),
+                      selected: _visibleDevice == PointerDeviceKind.stylus,
+                      onSelected: (selected) {
+                        setState(() => _visibleDevice =
+                            selected ? PointerDeviceKind.stylus : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.touch_app, size: 32),
+                          SizedBox(width: 8),
+                          Text('Finger', style: TextStyle(fontSize: 24)),
+                        ],
+                      ),
+                      selected: _visibleDevice == PointerDeviceKind.touch,
+                      onSelected: (selected) {
+                        setState(() => _visibleDevice =
+                            selected ? PointerDeviceKind.touch : null);
+                      },
+                    ),
+                    FilterChip(
+                      label: Text('All', style: TextStyle(fontSize: 24)),
+                      selected: _visibleDevice == null,
+                      onSelected: (selected) {
+                        setState(() => _visibleDevice = null);
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -220,45 +129,129 @@ class _MyHomePageState extends State<MyHomePage> {
                 border: Border.all(color: Colors.grey[300]!),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Draw(
-                  strokes: _strokes,
-                  strokeColor: Colors.black,
-                  strokeWidth: 4.0,
-                  backgroundColor: Colors.white,
-                  smoothingFunc: SmoothingMode.catmullRom.converter,
-                  onStrokeDrawn: (stroke) {
-                    setState(() => _strokes = [..._strokes, stroke]);
-                  },
-                  onStrokeStarted: _getStrokeHandler(),
-                ),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: InteractiveViewer(
+                      scaleEnabled: !_isDrawing,
+                      panEnabled: !_isDrawing,
+                      child: Draw(
+                        strokes: _strokes
+                            .map((stroke) =>
+                                (stroke.deviceKind == _visibleDevice ||
+                                        _visibleDevice == null)
+                                    ? stroke
+                                    : stroke.copyWith(color: Colors.grey[200]!))
+                            .toList(),
+                        strokeColor: Colors.black,
+                        strokeWidth: 4.0,
+                        backgroundColor: Colors.white,
+                        onStrokeDrawn: (stroke) {
+                          setState(() {
+                            _strokes = [..._strokes, stroke];
+                            _redoStack = [];
+                            _currentDevice = null;
+                          });
+                        },
+                        onStrokeStarted: (newStroke, currentStroke) {
+                          if (currentStroke != null) {
+                            return currentStroke;
+                          }
+                          setState(() => _currentDevice = newStroke.deviceKind);
+                          return newStroke.copyWith(
+                            color:
+                                newStroke.deviceKind == PointerDeviceKind.stylus
+                                    ? Colors.blue
+                                    : Colors.green,
+                            width:
+                                newStroke.deviceKind == PointerDeviceKind.stylus
+                                    ? 4.0
+                                    : 8.0,
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  if (_currentDevice != null)
+                    Positioned(
+                      top: 16,
+                      left: 0,
+                      right: 0,
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: Container(
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: _deviceColor[50],
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: _deviceColor[200]!),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _currentDevice == PointerDeviceKind.stylus
+                                    ? Icons.edit
+                                    : Icons.touch_app,
+                                size: 32,
+                                color: _deviceColor[700],
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Drawing with ${_currentDevice == PointerDeviceKind.stylus ? "Stylus" : "Finger"}...',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  color: _deviceColor[700],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
-          // Instructions area
+          // Control buttons
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(16),
-            color: Colors.blue[50],
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey[300]!)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text(
-                  '💡 How to Use',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue[900],
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: Icon(Icons.undo),
+                    label: Text('Undo'),
+                    onPressed: _canUndo ? _undo : null,
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Select a mode and try drawing with both stylus and finger.\n'
-                  'You can see how the behavior differs depending on the mode.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.blue[800],
+                SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: Icon(Icons.redo),
+                    label: Text('Redo'),
+                    onPressed: _canRedo ? _redo : null,
+                  ),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: Icon(Icons.clear),
+                    label: Text('Clear'),
+                    onPressed: _strokes.isEmpty ? null : _clear,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[50],
+                      foregroundColor: Colors.red[700],
+                    ),
                   ),
                 ),
               ],

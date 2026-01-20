@@ -1,39 +1,28 @@
 # draw_your_image
 
-draw_your_image is a Flutter package for drawing pictures/letters with fingers with `Draw` widget.
+A Flutter package for creating customizable drawing canvases with a declarative API.
 
-`Draw` is just a tiny widget which just feedbacks generated strokes by user's gestures and draws the given `strokes` on their screen.
+![demo gif of draw_your_image](https://github.com/chooyan-eng/draw_your_image/raw/main/assets/draw_your_image_demo.gif)
 
-Although this means all the state management for stroke data, such as undo/redo, clear, or preserving stroke values, is your business, __this approach enables you to seemlessly collaborate with the functionalities of your apps__, such as persistence of the strokes data, integrated undo/redo with other editings, etc.
+## Core Concept
 
-Also, all the configuration about colors and stroke width, smoothing logics, strokes data can be customized.
+**Fully declarative, fully customizable**
 
-# Demos
+- **No controllers required** - Manage stroke data in your widget state
+- **Customize everything** - Control stroke behavior through simple callbacks
+- **Bring your own features** - Implement undo/redo, zoom/pan, image export as your app needs
 
-![Demo](https://github.com/chooyan-eng/draw_your_image/raw/main/assets/draw_sample.gif)
+This package focuses on providing a flexible drawing widget, leaving app-specific features to you.
 
-# Features
+## Features
 
-- Fully declarative
-- Smoothing strokes
-- All the data can be customized on your side
-- Configuration of any __stroke colors__ and __background color__
-- Configuration of __stroke width__
-- Erasor mode
+✨ **Device-aware drawing** - Distinguish between stylus, finger, and mouse input  
+🎨 **Flexible stroke handling** - Customize behavior per input device or any other criteria  
+🖌️ **Built-in smoothing** - Catmull-Rom spline interpolation included  
+⚙️ **Fully customizable** - Colors, widths, smoothing algorithms  
+🧹 **Eraser mode** - Built-in support for erasing strokes
 
-# Note
-
-Though this package is available with a couple of features, it's still under development. Any feedbacks or bug reports, and off course Pull Requests, are welcome. Feel free to visit the GitHub repository below.
-
-[https://github.com/chooyan-eng/draw_your_image](https://github.com/chooyan-eng/draw_your_image)
-
-# Usage
-
-## Draw
-
-The very first step for draw_your_image is to place `Draw` widget at anywhere you want in the widget tree.
-
-The `Draw` requires a parent widget, typically `StatefulWidget`, that manages the stroke state as `Draw` only handles the drawing interaction and draws the given strokes.
+## Quick Start
 
 ```dart
 class MyDrawingPage extends StatefulWidget {
@@ -42,108 +31,66 @@ class MyDrawingPage extends StatefulWidget {
 }
 
 class _MyDrawingPageState extends State<MyDrawingPage> {
-  List<Stroke> _strokes = []; 
+  /// Store all the strokes on app side as state
+  List<Stroke> _strokes = [];
 
   @override
   Widget build(BuildContext context) {
     return Draw(
-      // give back stroke data to Draw
-      strokes: _strokes, 
+      strokes: _strokes, // pass strokes via 
       onStrokeDrawn: (stroke) {
-        // Add a drawn stroke to _strokes
+        // store new drawn stroke and rebuild
         setState(() {
           _strokes = [..._strokes, stroke];
         });
       },
-      backgroundColor: Colors.blue.shade50,
-      strokeColor: Colors.red,
-      strokeWidth: 8,
-      isErasing: false,
     );
   }
 }
 ```
 
-**Required properties:**
-- `strokes`: List of `Stroke` objects to display on the canvas
-- `onStrokeDrawn`: Callback invoked when a stroke is completed
+That's it! The canvas accepts any input and draws with default settings.
 
-**Optional properties: **
-- `strokeColor`, `strokeWidth`: `Draw` widget displays a canvas where users can draw with the given configurations.
-- `isErasing`: A flag for erasing drawn strokes. If `true`, new strokes will erase previously drawn strokes. Note that erasing strokes are also represented by `Stroke` and passed via `onStrokeDrawn` callback as well.
+## Device-Aware Drawing with `onStrokeStarted`
 
-If you wish to change colors or width, simply call `setState()` in your `StatefulWidget` and change the properties passed to `Draw`. Other state management systems are also available.
+The `onStrokeStarted` callback lets you control stroke behavior based on input devices or any other criteria.
 
-## Input Device Control
-
-The `onStrokeStarted` callback allows you to control drawing behavior based on input situations, typically input device type (stylus, finger, mouse, etc.). This callback is invoked when a new stroke is about to start, giving you the opportunity to:
-
-- Accept or reject the stroke based on the situation (e.g. accept only stylus)
-- Modify stroke properties (color, width, erasing mode) based on input device
-- Handle multi-touch scenarios by choosing which stroke to continue
-
-**Callback signature:**
 ```dart
-Stroke? Function(Stroke newStroke, Stroke? currentStroke)? onStrokeStarted
+Stroke? Function(Stroke newStroke, Stroke? currentStroke)
 ```
 
 **Parameters:**
-- `newStroke`: The new stroke being started with initial configuration
-- `currentStroke`: The currently ongoing stroke (if any)
+- `newStroke` - The stroke about to be started
+- `currentStroke` - The stroke currently being drawn (null if none)
 
-**Return value:**
-`Draw` continues the returned `Stroke`, thus:
-- return `newStroke` to start the new stroke
-- return `currentStroke` to continue the existing stroke (rejecting the new one)
-- return `null` to cancel both strokes
-- return a modified stroke with `newStroke.copyWith(...)` to customize properties
+**Return:**
+- The stroke to draw (can be `newStroke`, `currentStroke`, or a modified version)
+- `null` to reject the stroke
 
-You can use the pre-defined utility functions, `stylusOnlyHandler` or `stylusPriorHandler`, if they fit your needs. Or you can also make your own function.
+### Example: Stylus draws, finger erases
 
-### Example: Accept only stylus input
+If you want to draw lines with stylus while erase them with a finger, the function can be implemented like below:
 
 ```dart
-import 'package:draw_your_image/draw_your_image.dart';
+extension on PointerDeviceKind {
+  bool get isStylus =>
+      this ||
+      this == PointerDeviceKind.invertedStylus;
+}
 
-Draw(
-  strokes: _strokes,
-  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  onStrokeStarted: stylusOnlyHandler,
-)
-```
-
-The `stylusOnlyHandler` utility function only accepts stylus input and automatically sets inverted stylus to erasing mode.
-
-### Example: Prioritize stylus over other inputs
-
-```dart
-Draw(
-  strokes: _strokes,
-  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  onStrokeStarted: stylusPriorHandler,
-)
-```
-
-The `stylusPriorHandler` utility function gives priority to stylus input. If a stylus is already drawing, other input types are ignored.
-
-### Example: Custom handler - Stylus draws black, finger erases
-
-```dart
 Stroke? customHandler(Stroke newStroke, Stroke? currentStroke) {
-  // If stylus is already drawing, continue with it
-  if (currentStroke?.deviceKind == PointerDeviceKind.stylus) {
+  // if we have an ongoing stroke, just continue.
+  if (currentStroke != null) {
     return currentStroke;
   }
   
-  // New stroke: stylus draws black, finger erases
   if (newStroke.deviceKind == PointerDeviceKind.stylus) {
-    return newStroke.copyWith(color: Colors.black, isErasing: false);
-  } else if (newStroke.deviceKind == PointerDeviceKind.touch) {
-    return newStroke.copyWith(isErasing: true);
+    // if stylus, draw black line
+    return newStroke.copyWith(color: Colors.black);
+  } else {
+    // if finger, erasor mode
+    return newStroke.copyWith(isErasing: true, width: 20.0);
   }
-  
-  // Reject other input types
-  return currentStroke;
 }
 
 Draw(
@@ -153,90 +100,59 @@ Draw(
 )
 ```
 
-## Path Smoothing
+### Example: Stylus-only drawing
 
-By default, strokes are smoothed using Catmull-Rom spline interpolation. You can customize this behavior using the `smoothingFunc` parameter.
-
-### Using built-in smoothing modes:
-
-You can use `SmoothingMode` enum for pre-defined smoothing logics. As `SmoothingMode` has a field of function named `converter`, you can simply pass the function to `smoothingFunc`.
-
-```dart
-// Smooth curves (default)
-Draw(
-  strokes: _strokes,
-  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  smoothingFunc: SmoothingMode.catmullRom.converter,
-)
-
-// No smoothing (straight lines)
-Draw(
-  strokes: _strokes,
-  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  smoothingFunc: SmoothingMode.none.converter,
-)
-```
-
-### Using custom smoothing function:
-
-Because `smoothingFunc` can receive any functions as long as they apply the type `Path Function(Stroke)`, you can implement your own logic and pass the function here for customizing smoothing logics.
+If pre-defined utility functions fit to your needs, you can pick one of them.
 
 ```dart
 Draw(
   strokes: _strokes,
   onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  smoothingFunc: (stroke) {
-    // Custom path generation logic
-    final path = Path();
-    final points = stroke.points;
-    
-    if (points.isNotEmpty) {
-      path.moveTo(points[0].dx, points[0].dy);
-      for (int i = 1; i < points.length; i++) {
-        path.lineTo(points[i].dx, points[i].dy);
-      }
-    }
-    
-    return path;
-  },
+  onStrokeStarted: stylusOnlyHandler,  // Pre-defined utility
 )
 ```
 
-## Stroke Data Structure
+### Pre-defined Utilities
 
-Strokes are stored as a list of point and its metadata containing:
-- `points`: List of `Offset` representing the stroke path
-- `color`: Stroke color
-- `width`: Stroke width
-- `isErasing`: Whether the stroke is in eraser mode
+- `stylusOnlyHandler` - Accept only stylus input
+- `stylusPriorHandler` - Prioritize stylus when drawing (palm rejection)
 
-This structure allows you to:
-- Access and process stroke data independently from UI
-- Apply post-processing like resampling
-- Implement custom rendering logic
+## API Reference
 
-### Resampling Utility
+### Draw Widget Properties
 
-The `resamplePoints` function allows you to resample stroke points for uniform density:
+| Property | Type | Required | Description |
+|----------|------|----------|-------------|
+| `strokes` | `List<Stroke>` | ✓ | List of strokes to display |
+| `onStrokeDrawn` | `void Function(Stroke)` | ✓ | Called when a stroke is complete |
+| `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` |  | Control stroke behavior based on input |
+| `strokeColor` | `Color` |  | Default stroke color |
+| `strokeWidth` | `double` |  | Default stroke width |
+| `backgroundColor` | `Color` |  | Canvas background color |
+| `isErasing` | `bool` |  | Default erasing mode |
+| `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
+
+### Stroke Properties
 
 ```dart
-import 'package:draw_your_image/draw_your_image.dart';
-
-// Resample points with 5.0 pixel spacing
-final originalPoints = [
-  Offset(0, 0),
-  Offset(10, 10),
-  Offset(20, 15),
-  // ... more points
-];
-
-final resampledPoints = resamplePoints(originalPoints, 5.0);
-
-// Use resampled points to create a new stroke
-final newStroke = stroke.copyWith(points: resampledPoints);
+class Stroke {
+  PointerDeviceKind deviceKind;  // Input device type
+  List<Offset> points;           // Stroke points
+  Color color;                   // Stroke color
+  double width;                  // Stroke width
+  bool isErasing;                // Eraser mode flag
+}
 ```
 
-This is useful for:
-- Reducing the number of points while maintaining shape
-- Normalizing point density across different drawing speeds
-- Pre-processing data for machine learning or gesture recognition
+## Smoothing Modes
+
+Smoothing algorithm is also customizable. You can choose pre-defined functions below or make your own function.
+
+```dart
+SmoothingMode.catmullRom.converter  // Smooth curves (default)
+SmoothingMode.none.converter        // No smoothing (straight lines)
+```
+
+## Working with AI Assistants
+
+This package is designed to work well with AI coding assistants. If you want accurate response from AI agents, refer [AI_GUIDE.md](https://github.com/chooyan-eng/draw_your_image/blob/main/AI_GUIDE.md) before asking.
