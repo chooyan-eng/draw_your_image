@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:draw_your_image/draw_your_image.dart';
 import 'package:flutter/material.dart';
 
@@ -9,18 +10,55 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'onStrokeStarted Demo',
       theme: ThemeData(
         primarySwatch: Colors.blue,
+        useMaterial3: true,
       ),
       home: MyHomePage(),
     );
   }
 }
 
-enum DrawMode {
-  writing, // 書き込みモード
-  reviewing, // 書き順確認モード
+/// Drawing mode definition
+enum DrawingMode {
+  stylusOnly,
+  stylusPrior,
+  stylusDrawFingerErase,
+  differentColors,
+  differentWidths,
+}
+
+extension DrawingModeExtension on DrawingMode {
+  String get displayName {
+    switch (this) {
+      case DrawingMode.stylusOnly:
+        return 'Stylus Only';
+      case DrawingMode.stylusPrior:
+        return 'Stylus Priority';
+      case DrawingMode.stylusDrawFingerErase:
+        return 'Stylus Draw / Finger Erase';
+      case DrawingMode.differentColors:
+        return 'Different Colors';
+      case DrawingMode.differentWidths:
+        return 'Different Widths';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case DrawingMode.stylusOnly:
+        return 'Only accepts stylus input. Finger input is ignored.';
+      case DrawingMode.stylusPrior:
+        return 'Prioritizes stylus. Finger input is ignored while drawing with stylus.';
+      case DrawingMode.stylusDrawFingerErase:
+        return 'Draw with stylus and erase with finger.';
+      case DrawingMode.differentColors:
+        return 'Stylus draws in black, finger draws in red.';
+      case DrawingMode.differentWidths:
+        return 'Stylus draws thin lines, finger draws thick lines.';
+    }
+  }
 }
 
 class MyHomePage extends StatefulWidget {
@@ -30,214 +68,203 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   var _strokes = <Stroke>[];
-  var _currentColor = Colors.black;
-  var _currentWidth = 4.0;
-  var _smoothingMode = SmoothingMode.catmullRom;
-  var _mode = DrawMode.writing;
-  var _reviewingStrokeIndex = 0;
-
-  void _undo() {
-    if (_strokes.isEmpty) return;
-    setState(() {
-      _strokes = _strokes.sublist(0, _strokes.length - 1);
-    });
-  }
+  var _currentMode = DrawingMode.stylusOnly;
 
   void _clear() {
     setState(() {
       _strokes = [];
-      _mode = DrawMode.writing;
-      _reviewingStrokeIndex = 0;
     });
   }
 
-  void _switchToReviewMode() {
-    if (_strokes.isEmpty) return;
-    setState(() {
-      _mode = DrawMode.reviewing;
-      _reviewingStrokeIndex = 0;
-    });
+  /// Returns the stroke handler for the current mode
+  Stroke? Function(Stroke, Stroke?)? _getStrokeHandler() {
+    switch (_currentMode) {
+      case DrawingMode.stylusOnly:
+        return stylusOnlyHandler;
+      case DrawingMode.stylusPrior:
+        return stylusPriorHandler;
+      case DrawingMode.stylusDrawFingerErase:
+        return _stylusDrawFingerEraseHandler;
+      case DrawingMode.differentColors:
+        return _differentColorsHandler;
+      case DrawingMode.differentWidths:
+        return _differentWidthsHandler;
+    }
   }
 
-  void _switchToWritingMode() {
-    setState(() {
-      _mode = DrawMode.writing;
-      _reviewingStrokeIndex = 0;
-    });
-  }
-
-  /// モードに応じて表示するストロークを生成
-  List<Stroke> _convert(List<Stroke> strokes) {
-    if (_mode == DrawMode.writing) {
-      return strokes;
+  /// Handler for stylus drawing and finger erasing
+  Stroke? _stylusDrawFingerEraseHandler(
+      Stroke newStroke, Stroke? currentStroke) {
+    // Continue current stroke if already drawing
+    if (currentStroke != null) {
+      return currentStroke;
     }
 
-    // 書き順確認モード
-    return strokes.asMap().entries.map((entry) {
-      final index = entry.key;
-      final stroke = entry.value;
+    // Stylus for normal drawing
+    if (_isStylus(newStroke.deviceKind)) {
+      return newStroke.copyWith(
+        color: Colors.black,
+        width: 4.0,
+        isErasing: false,
+      );
+    }
 
-      if (index < _reviewingStrokeIndex) {
-        // 過去のストローク: 黒
-        return stroke.copyWith(color: Colors.black);
-      } else if (index == _reviewingStrokeIndex) {
-        // 現在のストローク: 強調色（赤）
-        return stroke.copyWith(color: Colors.red, width: stroke.width * 1.2);
-      } else {
-        // 未来のストローク: 薄いグレー
-        return stroke.copyWith(color: Colors.grey.withValues(alpha: 0.3));
-      }
-    }).toList();
+    // Finger for erasing
+    return newStroke.copyWith(
+      isErasing: true,
+      width: 20.0,
+    );
+  }
+
+  /// Handler for different colors by device
+  Stroke? _differentColorsHandler(Stroke newStroke, Stroke? currentStroke) {
+    // Continue current stroke if already drawing
+    if (currentStroke != null) {
+      return currentStroke;
+    }
+
+    // Stylus: black, Finger: red
+    final color = _isStylus(newStroke.deviceKind) ? Colors.black : Colors.red;
+    return newStroke.copyWith(
+      color: color,
+      width: 4.0,
+    );
+  }
+
+  /// Handler for different widths by device
+  Stroke? _differentWidthsHandler(Stroke newStroke, Stroke? currentStroke) {
+    // Continue current stroke if already drawing
+    if (currentStroke != null) {
+      return currentStroke;
+    }
+
+    // Stylus: thin line, Finger: thick line
+    final width = _isStylus(newStroke.deviceKind) ? 2.0 : 8.0;
+    return newStroke.copyWith(
+      color: Colors.black,
+      width: width,
+    );
+  }
+
+  /// Check if the device kind is stylus
+  bool _isStylus(PointerDeviceKind kind) {
+    return kind == PointerDeviceKind.stylus ||
+        kind == PointerDeviceKind.invertedStylus;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        title: Text('onStrokeStarted Demo'),
         actions: [
-          if (_mode == DrawMode.writing) ...[
-            IconButton(
-              icon: Icon(Icons.undo),
-              onPressed: _strokes.isEmpty ? null : _undo,
-            ),
-            IconButton(
-              icon: Icon(Icons.clear),
-              onPressed: _strokes.isEmpty ? null : _clear,
-            ),
-            IconButton(
-              icon: Icon(Icons.play_arrow),
-              onPressed: _strokes.isEmpty ? null : _switchToReviewMode,
-              tooltip: '書き順確認',
-            ),
-          ],
-          if (_mode == DrawMode.reviewing) ...[
-            IconButton(
-              icon: Icon(Icons.edit),
-              onPressed: _switchToWritingMode,
-              tooltip: '書き込みに戻る',
-            ),
-            IconButton(
-              icon: Icon(Icons.clear),
-              onPressed: _clear,
-            ),
-          ],
+          IconButton(
+            icon: Icon(Icons.clear),
+            onPressed: _strokes.isEmpty ? null : _clear,
+            tooltip: 'Clear',
+          ),
         ],
       ),
-      body: SizedBox(
-        height: double.infinity,
-        width: double.infinity,
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            // 書き込みモード時のみ表示
-
-            // Smoothing mode selector
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('Smoothing: '),
-                  SegmentedButton<SmoothingMode>(
-                    segments: const [
-                      ButtonSegment(
-                        value: SmoothingMode.none,
-                        label: Text('None'),
-                      ),
-                      ButtonSegment(
-                        value: SmoothingMode.catmullRom,
-                        label: Text('Smooth'),
-                      ),
-                    ],
-                    selected: {_smoothingMode},
-                    onSelectionChanged: (Set<SmoothingMode> newSelection) {
-                      setState(() {
-                        _smoothingMode = newSelection.first;
-                      });
-                    },
+      body: Column(
+        children: [
+          // Mode selection area
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            color: Colors.grey[100],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Mode Selection',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
-              ),
+                ),
+                SizedBox(height: 8),
+                DropdownButton<DrawingMode>(
+                  value: _currentMode,
+                  isExpanded: true,
+                  items: DrawingMode.values.map((mode) {
+                    return DropdownMenuItem(
+                      value: mode,
+                      child: Text(mode.displayName),
+                    );
+                  }).toList(),
+                  onChanged: (mode) {
+                    if (mode != null) {
+                      setState(() {
+                        _currentMode = mode;
+                        _strokes = []; // Clear on mode change
+                      });
+                    }
+                  },
+                ),
+                SizedBox(height: 8),
+                Text(
+                  _currentMode.description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: IgnorePointer(
-                ignoring: _mode == DrawMode.reviewing,
+          ),
+          // Drawing area
+          Expanded(
+            child: Container(
+              margin: EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
                 child: Draw(
-                  strokes: _convert(_strokes),
-                  strokeColor: _currentColor,
-                  strokeWidth: _currentWidth,
-                  smoothingFunc: _smoothingMode.converter,
+                  strokes: _strokes,
+                  strokeColor: Colors.black,
+                  strokeWidth: 4.0,
+                  backgroundColor: Colors.white,
+                  smoothingFunc: SmoothingMode.catmullRom.converter,
                   onStrokeDrawn: (stroke) {
                     setState(() => _strokes = [..._strokes, stroke]);
                   },
-                  onStrokeStarted: styrusPriorHandler,
+                  onStrokeStarted: _getStrokeHandler(),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
-            // 書き順確認モード時のスライダー
-            if (_mode == DrawMode.reviewing && _strokes.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Column(
-                  children: [
-                    Text(
-                      '書き順: ${_reviewingStrokeIndex + 1} / ${_strokes.length}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.arrow_back_ios),
-                          onPressed: _reviewingStrokeIndex > 0
-                              ? () {
-                                  setState(() {
-                                    _reviewingStrokeIndex--;
-                                  });
-                                }
-                              : null,
-                        ),
-                        Expanded(
-                          child: Slider(
-                            value: _reviewingStrokeIndex.toDouble(),
-                            min: 0,
-                            max: (_strokes.length - 1).toDouble(),
-                            divisions: _strokes.length - 1,
-                            label: '${_reviewingStrokeIndex + 1}',
-                            onChanged: (value) {
-                              setState(() {
-                                _reviewingStrokeIndex = value.toInt();
-                              });
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.arrow_forward_ios),
-                          onPressed: _reviewingStrokeIndex < _strokes.length - 1
-                              ? () {
-                                  setState(() {
-                                    _reviewingStrokeIndex++;
-                                  });
-                                }
-                              : null,
-                        ),
-                      ],
-                    ),
-                  ],
+          ),
+          // Instructions area
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.all(16),
+            color: Colors.blue[50],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '💡 How to Use',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[900],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-            ],
-            // 書き込みモード時のコントロール
-            if (_mode == DrawMode.writing) const SizedBox(height: 60),
-            const SizedBox(height: 32),
-          ],
-        ),
+                SizedBox(height: 8),
+                Text(
+                  'Select a mode and try drawing with both stylus and finger.\n'
+                  'You can see how the behavior differs depending on the mode.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.blue[800],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

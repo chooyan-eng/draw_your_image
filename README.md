@@ -78,7 +78,7 @@ If you wish to change colors or width, simply call `setState()` in your `Statefu
 
 The `onStrokeStarted` callback allows you to control drawing behavior based on input situations, typically input device type (stylus, finger, mouse, etc.). This callback is invoked when a new stroke is about to start, giving you the opportunity to:
 
-- Accept or reject the stroke based on the situation (e.g. accept only styrus)
+- Accept or reject the stroke based on the situation (e.g. accept only stylus)
 - Modify stroke properties (color, width, erasing mode) based on input device
 - Handle multi-touch scenarios by choosing which stroke to continue
 
@@ -98,7 +98,7 @@ Stroke? Function(Stroke newStroke, Stroke? currentStroke)? onStrokeStarted
 - return `null` to cancel both strokes
 - return a modified stroke with `newStroke.copyWith(...)` to customize properties
 
-You can use the pre-defined utility functions, `styrusOnlyHandler` or `styrusPriorHandler`, if they fit your needs. Or you can also make your own function.
+You can use the pre-defined utility functions, `stylusOnlyHandler` or `stylusPriorHandler`, if they fit your needs. Or you can also make your own function.
 
 ### Example: Accept only stylus input
 
@@ -108,11 +108,11 @@ import 'package:draw_your_image/draw_your_image.dart';
 Draw(
   strokes: _strokes,
   onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  onStrokeStarted: styrusOnlyHandler,
+  onStrokeStarted: stylusOnlyHandler,
 )
 ```
 
-The `styrusOnlyHandler` utility function only accepts stylus input and automatically sets inverted stylus to erasing mode.
+The `stylusOnlyHandler` utility function only accepts stylus input and automatically sets inverted stylus to erasing mode.
 
 ### Example: Prioritize stylus over other inputs
 
@@ -120,11 +120,11 @@ The `styrusOnlyHandler` utility function only accepts stylus input and automatic
 Draw(
   strokes: _strokes,
   onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  onStrokeStarted: styrusPriorHandler,
+  onStrokeStarted: stylusPriorHandler,
 )
 ```
 
-The `styrusPriorHandler` utility function gives priority to stylus input. If a stylus is already drawing, other input types are ignored.
+The `stylusPriorHandler` utility function gives priority to stylus input. If a stylus is already drawing, other input types are ignored.
 
 ### Example: Custom handler - Stylus draws black, finger erases
 

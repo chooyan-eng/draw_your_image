@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:draw_your_image/draw_your_image.dart';
 
 /// A stroke handler that gives priority to stylus input over other input types.
-Stroke? styrusPriorHandler(Stroke newStroke, Stroke? currentStroke) {
+Stroke? stylusPriorHandler(Stroke newStroke, Stroke? currentStroke) {
   return switch (currentStroke?.deviceKind.isStylus) {
     true => currentStroke,
     false => newStroke.deviceKind.isStylus ? newStroke : currentStroke,
@@ -13,7 +13,7 @@ Stroke? styrusPriorHandler(Stroke newStroke, Stroke? currentStroke) {
 
 /// A stroke handler that only accepts stylus input.
 /// If the input is from an inverted stylus, it automatically sets the stroke to erasing mode.
-Stroke? styrusOnlyHandler(Stroke newStroke, Stroke? currentStroke) {
+Stroke? stylusOnlyHandler(Stroke newStroke, Stroke? currentStroke) {
   // accept only stylus input
   if (!newStroke.deviceKind.isStylus) {
     return currentStroke;
