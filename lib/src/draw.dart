@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:draw_your_image/src/smoothing.dart';
 import 'package:draw_your_image/src/stroke.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +11,18 @@ class Draw extends StatefulWidget {
 
   /// Callback called when one stroke is completed.
   final ValueChanged<Stroke> onStrokeDrawn;
+
+  /// Callback called when a new stroke is started.
+  /// If null, drawing always starts with a default configuration.
+  /// If provided, [Draw] will start a new stroke with the returned [Stroke] configuration.
+  /// If returned value is null, the new stroke will be canceled.
+  ///
+  /// If another stroke is already ongoing, the stroke is given as [currentStroke]
+  /// Because [Draw] only supports single touch drawing, you have to choose
+  /// which stroke to continue by returning either [newStroke] or [currentStroke],
+  /// or none of them, meaning to cancel both.
+  final Stroke? Function(Stroke newStroke, Stroke? currentStroke)?
+  onStrokeStarted;
 
   /// [Color] for background of canvas.
   final Color backgroundColor;
@@ -30,6 +44,7 @@ class Draw extends StatefulWidget {
     super.key,
     required this.strokes,
     required this.onStrokeDrawn,
+    this.onStrokeStarted,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
@@ -50,14 +65,25 @@ class _DrawState extends State<Draw> {
   int? _activePointerId;
 
   /// start drawing
-  void _start(double startX, double startY) {
+  void _start(PointerDownEvent event) {
+    final newStroke = Stroke(
+      deviceKind: event.kind,
+      points: [event.localPosition],
+      color: widget.strokeColor,
+      width: widget.strokeWidth,
+      isErasing: widget.isErasing,
+    );
+
+    final effectiveStroke =
+        widget.onStrokeStarted?.call(newStroke, _currentStroke) ??
+        _currentStroke;
+
+    if (_currentStroke != effectiveStroke) {
+      _activePointerId = event.pointer;
+    }
+
     setState(() {
-      _currentStroke = Stroke(
-        points: [Offset(startX, startY)],
-        color: widget.strokeColor,
-        width: widget.strokeWidth,
-        isErasing: widget.isErasing,
-      );
+      _currentStroke = effectiveStroke;
     });
   }
 
@@ -87,11 +113,7 @@ class _DrawState extends State<Draw> {
 
     return SizedBox.expand(
       child: Listener(
-        onPointerDown: (event) {
-          if (_activePointerId != null) return;
-          _activePointerId = event.pointer;
-          _start(event.localPosition.dx, event.localPosition.dy);
-        },
+        onPointerDown: _start,
         onPointerMove: (event) {
           if (event.pointer != _activePointerId) return;
           _add(event.localPosition.dx, event.localPosition.dy);

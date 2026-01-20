@@ -171,6 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
                   onStrokeDrawn: (stroke) {
                     setState(() => _strokes = [..._strokes, stroke]);
                   },
+                  onStrokeStarted: styrusPriorHandler,
                 ),
               ),
             ),

@@ -7,6 +7,9 @@ import 'dart:ui';
 /// These data can be treated as data independent of the UI,
 /// and can be processed externally, such as resampling and smoothing.
 class Stroke {
+  /// The kind of pointer device used to create the stroke
+  PointerDeviceKind deviceKind;
+
   /// Points that compose the stroke
   final List<Offset> points;
 
@@ -21,6 +24,7 @@ class Stroke {
 
   /// Creates a stroke
   Stroke({
+    required this.deviceKind,
     required this.points,
     required this.color,
     required this.width,
@@ -36,6 +40,7 @@ class Stroke {
     double? width,
     bool? isErasing,
   }) => Stroke(
+    deviceKind: deviceKind, // deviceKind can't be changed
     points: points ?? List.from(this.points),
     color: color ?? this.color,
     width: width ?? this.width,
