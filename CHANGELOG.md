@@ -1,3 +1,7 @@
+## [0.4.1] - 2026.01.20
+
+* Fixed lint
+
 ## [0.4.0] - 2026.01.20
 
 * Add `onStrokeStarted` callback for flexible stroke control based on input device type
