@@ -1,3 +1,8 @@
+## [0.4.3] - 2026.01.21
+
+* Updated README.md
+* Added AI_GUIDE.md
+
 ## [0.4.2] - 2026.01.20
 
 * Fixed typo

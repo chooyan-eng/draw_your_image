@@ -1,6 +1,6 @@
 name: draw_your_image
 description: A Flutter package which enables users to draw with fingers in your designed UI.
-version: 0.4.2
+version: 0.4.3
 homepage: https://github.com/chooyan-eng/draw_your_image
 
 environment:
