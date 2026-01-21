@@ -1,3 +1,4 @@
+import 'package:draw_your_image/src/intersection_detection.dart';
 import 'package:draw_your_image/src/smoothing.dart';
 import 'package:draw_your_image/src/stroke.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,9 @@ class Draw extends StatefulWidget {
 
   /// Callback called when one stroke is completed.
   final ValueChanged<Stroke> onStrokeDrawn;
+
+  /// Callback called when strokes are removed by erasing.
+  final ValueChanged<List<Stroke>>? onStrokesRemoved;
 
   /// Callback called when a new stroke is started.
   /// If null, drawing always starts with a default configuration.
@@ -31,23 +35,31 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
-  /// Flag for erase mode
-  final bool isErasing;
+  /// Erasing behavior for drawing
+  final ErasingBehavior erasingBehavior;
 
   /// Function to convert stroke points to Path.
   /// Defaults to Catmull-Rom spline interpolation.
   final SmoothingFunc? smoothingFunc;
 
+  /// Function to detect intersecting strokes.
+  /// Defaults to segment distance based detection.
+  /// This is used when [isErasing] is true to detect which strokes
+  /// should be removed by the erasing stroke.
+  final IntersectionDetector? intersectionDetector;
+
   const Draw({
     super.key,
     required this.strokes,
     required this.onStrokeDrawn,
+    this.onStrokesRemoved,
     this.onStrokeStarted,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
-    this.isErasing = false,
+    this.erasingBehavior = ErasingBehavior.none,
     this.smoothingFunc,
+    this.intersectionDetector,
   });
 
   @override
@@ -69,7 +81,7 @@ class _DrawState extends State<Draw> {
       points: [event.localPosition],
       color: widget.strokeColor,
       width: widget.strokeWidth,
-      isErasing: widget.isErasing,
+      erasingBehavior: widget.erasingBehavior,
     );
 
     final effectiveStroke =
@@ -105,6 +117,9 @@ class _DrawState extends State<Draw> {
   Widget build(BuildContext context) {
     final converter =
         widget.smoothingFunc ?? SmoothingMode.catmullRom.converter;
+    final detector =
+        widget.intersectionDetector ??
+        IntersectionMode.segmentDistance.detector;
 
     /// strokes to paint (including currently drawing stroke)
     final strokesToPaint = [...widget.strokes, ?_currentStroke];
@@ -113,8 +128,18 @@ class _DrawState extends State<Draw> {
       child: Listener(
         onPointerDown: _start,
         onPointerMove: (event) {
-          if (event.pointer != _activePointerId) return;
+          if (event.pointer != _activePointerId) {
+            return;
+          }
+
           _add(event.localPosition.dx, event.localPosition.dy);
+
+          if (_currentStroke?.erasingBehavior == ErasingBehavior.stroke) {
+            final removedStrokes = detector(widget.strokes, _currentStroke!);
+            if (removedStrokes.isNotEmpty && widget.onStrokesRemoved != null) {
+              widget.onStrokesRemoved!(removedStrokes);
+            }
+          }
         },
         onPointerUp: (event) {
           if (_activePointerId != event.pointer) return;
@@ -128,7 +153,7 @@ class _DrawState extends State<Draw> {
         },
         child: CustomPaint(
           painter: _FreehandPainter(
-            strokesToPaint,
+            strokesToPaint.where((stroke) => stroke.shouldPaint).toList(),
             widget.backgroundColor,
             converter,
           ),
@@ -162,10 +187,14 @@ class _FreehandPainter extends CustomPainter {
 
       final paint = Paint()
         ..strokeWidth = stroke.width
-        ..color = stroke.isErasing ? Colors.transparent : stroke.color
+        ..color = stroke.erasingBehavior == ErasingBehavior.pixel
+            ? Colors.transparent
+            : stroke.color
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke
-        ..blendMode = stroke.isErasing ? BlendMode.clear : BlendMode.srcOver;
+        ..blendMode = stroke.erasingBehavior == ErasingBehavior.pixel
+            ? BlendMode.clear
+            : BlendMode.srcOver;
       canvas.drawPath(path, paint);
     }
     canvas.restore();

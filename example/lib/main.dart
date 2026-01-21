@@ -7,10 +7,7 @@ void main() => runApp(MyApp());
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'draw_your_image Demo',
-      home: MyHomePage(),
-    );
+    return MaterialApp(title: 'draw_your_image Demo', home: MyHomePage());
   }
 }
 
@@ -19,34 +16,50 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => _MyHomePageState();
 }
 
+/// Type definition for local state for undo/redo functionality
+typedef StrokeState = List<Stroke>;
+
 class _MyHomePageState extends State<MyHomePage> {
   var _strokes = <Stroke>[];
-  var _redoStack = <Stroke>[];
+
+  /// Undo and redo stacks.
+  /// Undo/redo is implemented by saving the list of states.
+  var _undoStack = <StrokeState>[];
+  var _redoStack = <StrokeState>[];
+
   PointerDeviceKind? _currentDevice;
   PointerDeviceKind? _visibleDevice;
+  ErasingBehavior _erasingBehavior = ErasingBehavior.none;
 
-  bool get _canUndo => _strokes.isNotEmpty;
+  bool get _canUndo => _undoStack.isNotEmpty;
   bool get _canRedo => _redoStack.isNotEmpty;
   bool get _isDrawing => _currentDevice != null;
 
   void _clear() {
     setState(() {
       _strokes = [];
+      _undoStack = [];
       _redoStack = [];
     });
   }
 
   void _undo() {
     setState(() {
-      final lastStroke = _strokes.removeLast();
-      _redoStack.add(lastStroke);
+      /// save current state to redo stack
+      _redoStack.add(List.from(_strokes));
+
+      /// restore last state from undo stack
+      _strokes = _undoStack.removeLast();
     });
   }
 
   void _redo() {
     setState(() {
-      final stroke = _redoStack.removeLast();
-      _strokes.add(stroke);
+      /// save current state to undo stack
+      _undoStack.add(List.from(_strokes));
+
+      /// restore last state from redo stack
+      _strokes = _redoStack.removeLast();
     });
   }
 
@@ -90,8 +103,11 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       selected: _visibleDevice == PointerDeviceKind.stylus,
                       onSelected: (selected) {
-                        setState(() => _visibleDevice =
-                            selected ? PointerDeviceKind.stylus : null);
+                        setState(
+                          () => _visibleDevice = selected
+                              ? PointerDeviceKind.stylus
+                              : null,
+                        );
                       },
                     ),
                     FilterChip(
@@ -105,8 +121,11 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                       selected: _visibleDevice == PointerDeviceKind.touch,
                       onSelected: (selected) {
-                        setState(() => _visibleDevice =
-                            selected ? PointerDeviceKind.touch : null);
+                        setState(
+                          () => _visibleDevice = selected
+                              ? PointerDeviceKind.touch
+                              : null,
+                        );
                       },
                     ),
                     FilterChip(
@@ -138,21 +157,27 @@ class _MyHomePageState extends State<MyHomePage> {
                       panEnabled: !_isDrawing,
                       child: Draw(
                         strokes: _strokes
-                            .map((stroke) =>
-                                (stroke.deviceKind == _visibleDevice ||
-                                        _visibleDevice == null)
-                                    ? stroke
-                                    : stroke.copyWith(color: Colors.grey[200]!))
+                            .map(
+                              (stroke) =>
+                                  (stroke.deviceKind == _visibleDevice ||
+                                      _visibleDevice == null)
+                                  ? stroke
+                                  : stroke.copyWith(color: Colors.grey[200]!),
+                            )
                             .toList(),
                         strokeColor: Colors.black,
                         strokeWidth: 4.0,
                         backgroundColor: Colors.white,
+                        erasingBehavior: _erasingBehavior,
                         onStrokeDrawn: (stroke) {
-                          setState(() {
-                            _strokes = [..._strokes, stroke];
-                            _redoStack = [];
-                            _currentDevice = null;
-                          });
+                          setState(() => _currentDevice = null);
+                          if (stroke.shouldPaint) {
+                            setState(() {
+                              _undoStack.add(List.from(_strokes));
+                              _strokes = [..._strokes, stroke];
+                              _redoStack = [];
+                            });
+                          }
                         },
                         onStrokeStarted: (newStroke, currentStroke) {
                           if (currentStroke != null) {
@@ -162,13 +187,25 @@ class _MyHomePageState extends State<MyHomePage> {
                           return newStroke.copyWith(
                             color:
                                 newStroke.deviceKind == PointerDeviceKind.stylus
-                                    ? Colors.blue
-                                    : Colors.green,
+                                ? Colors.blue
+                                : Colors.green,
                             width:
                                 newStroke.deviceKind == PointerDeviceKind.stylus
-                                    ? 4.0
-                                    : 8.0,
+                                ? 4.0
+                                : 8.0,
                           );
+                        },
+                        onStrokesRemoved: (value) {
+                          setState(() {
+                            /// save current state to undo stack
+                            _undoStack.add(List.from(_strokes));
+
+                            /// clear redo stack
+                            _redoStack = [];
+                            _strokes = _strokes
+                                .where((stroke) => !value.contains(stroke))
+                                .toList();
+                          });
                         },
                       ),
                     ),
@@ -181,8 +218,10 @@ class _MyHomePageState extends State<MyHomePage> {
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: Container(
-                          padding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: _deviceColor[50],
                             borderRadius: BorderRadius.circular(4),
@@ -224,35 +263,83 @@ class _MyHomePageState extends State<MyHomePage> {
               color: Colors.white,
               border: Border(top: BorderSide(color: Colors.grey[300]!)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            child: Column(
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: Icon(Icons.undo),
-                    label: Text('Undo'),
-                    onPressed: _canUndo ? _undo : null,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: Icon(Icons.redo),
-                    label: Text('Redo'),
-                    onPressed: _canRedo ? _redo : null,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: Icon(Icons.clear),
-                    label: Text('Clear'),
-                    onPressed: _strokes.isEmpty ? null : _clear,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red[50],
-                      foregroundColor: Colors.red[700],
+                // Eraser mode toggle
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: FilterChip(
+                        label: Text('Draw'),
+                        selected: _erasingBehavior == ErasingBehavior.none,
+                        onSelected: (_) {
+                          setState(
+                            () => _erasingBehavior = ErasingBehavior.none,
+                          );
+                        },
+                      ),
                     ),
-                  ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: FilterChip(
+                        label: Text('Erase Pixel'),
+                        selected: _erasingBehavior == ErasingBehavior.pixel,
+                        onSelected: (_) {
+                          setState(
+                            () => _erasingBehavior = ErasingBehavior.pixel,
+                          );
+                        },
+                        selectedColor: Colors.orange[100],
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: FilterChip(
+                        label: Text('Erase Stroke'),
+                        selected: _erasingBehavior == ErasingBehavior.stroke,
+                        onSelected: (_) {
+                          setState(
+                            () => _erasingBehavior = ErasingBehavior.stroke,
+                          );
+                        },
+                        selectedColor: Colors.red[100],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: Icon(Icons.undo),
+                        label: Text('Undo'),
+                        onPressed: _canUndo ? _undo : null,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: Icon(Icons.redo),
+                        label: Text('Redo'),
+                        onPressed: _canRedo ? _redo : null,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: Icon(Icons.clear),
+                        label: Text('Clear'),
+                        onPressed: _strokes.isEmpty ? null : _clear,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red[50],
+                          foregroundColor: Colors.red[700],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

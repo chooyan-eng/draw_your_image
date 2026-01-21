@@ -12,17 +12,20 @@ Stroke? stylusPriorHandler(Stroke newStroke, Stroke? currentStroke) {
 }
 
 /// A stroke handler that only accepts stylus input.
-/// If the input is from an inverted stylus, it automatically sets the stroke to erasing mode.
+/// If the input is from an inverted stylus, it automatically sets the stroke to pixel erasing mode.
 Stroke? stylusOnlyHandler(Stroke newStroke, Stroke? currentStroke) {
   // accept only stylus input
   if (!newStroke.deviceKind.isStylus) {
     return currentStroke;
   }
 
-  // if invertedStylus is used, set isErasing to true
+  // if invertedStylus is used, set erasingBehavior to pixel
   return currentStroke ??
       newStroke.copyWith(
-        isErasing: newStroke.deviceKind == PointerDeviceKind.invertedStylus,
+        erasingBehavior:
+            newStroke.deviceKind == PointerDeviceKind.invertedStylus
+            ? ErasingBehavior.pixel
+            : ErasingBehavior.none,
       );
 }
 
