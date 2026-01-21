@@ -36,11 +36,21 @@ A `Stroke` represents a drawing stroke with the following properties:
 
 ```dart
 class Stroke {
-  PointerDeviceKind deviceKind;  // stylus, touch, mouse, etc.
-  List<Offset> points;           // Points that compose the stroke
-  Color color;                   // Stroke color
-  double width;                  // Stroke width in logical pixels
-  bool isErasing;                // Whether this stroke erases
+  PointerDeviceKind deviceKind;     // stylus, touch, mouse, etc.
+  List<Offset> points;              // Points that compose the stroke
+  Color color;                      // Stroke color
+  double width;                     // Stroke width in logical pixels
+  ErasingBehavior erasingBehavior;  // Erasing behavior (none/pixel/stroke)
+}
+```
+
+### ErasingBehavior
+
+```dart
+enum ErasingBehavior {
+  none,   // Normal drawing (default)
+  pixel,  // Pixel-level erasing - erases only overlapping pixels using BlendMode.clear
+  stroke, // Stroke-level erasing - removes entire strokes that intersect
 }
 ```
 
@@ -337,9 +347,12 @@ _strokes = [..._strokes, stroke];
 | `strokeColor` | `Color` | Default stroke color |
 | `strokeWidth` | `double` | Default stroke width |
 | `backgroundColor` | `Color` | Canvas background color |
+| `erasingBehavior` | `ErasingBehavior` | Erasing mode (none/pixel/stroke) |
 | `smoothingFunc` | `Path Function(Stroke)` | Smoothing function |
+| `intersectionDetector` | `IntersectionDetector` | Custom intersection detection function for stroke-level erasing |
 | `onStrokeDrawn` | `void Function(Stroke)` | Called when stroke is complete |
-| `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. You can control wether to continue, modify, or prevent, with returning value |
+| `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. Control whether to continue, modify, or prevent with return value |
+| `onStrokesRemoved` | `void Function(List<Stroke>)` | Called when strokes are removed by stroke-level erasing |
 
 ### Stroke Methods
 
@@ -349,7 +362,7 @@ stroke.copyWith({
   List<Offset>? points,
   Color? color,
   double? width,
-  bool? isErasing,
+  ErasingBehavior? erasingBehavior,
 })
 ```
 
@@ -357,21 +370,32 @@ stroke.copyWith({
 
 ### Undo/Redo
 
-Use a redo stack to manage stroke history:
+**Recommended approach: Stack entire state snapshots**
+
+Instead of stacking individual strokes, stack the entire state (`List<Stroke>`) for each action. This approach is simpler and handles all operations (add, remove, modify) consistently.
 
 ```dart
+/// Type definition for state snapshot
+typedef StrokeState = List<Stroke>;
+
 class _MyWidgetState extends State<MyWidget> {
   List<Stroke> _strokes = [];
-  List<Stroke> _redoStack = [];
+  
+  /// Undo and redo stacks store complete state snapshots
+  List<StrokeState> _undoStack = [];
+  List<StrokeState> _redoStack = [];
 
-  bool get _canUndo => _strokes.isNotEmpty;
+  bool get _canUndo => _undoStack.isNotEmpty;
   bool get _canRedo => _redoStack.isNotEmpty;
 
   void _undo() {
     if (_canUndo) {
       setState(() {
-        final lastStroke = _strokes.removeLast();
-        _redoStack.add(lastStroke);
+        // Save current state to redo stack
+        _redoStack.add(List.from(_strokes));
+        
+        // Restore previous state from undo stack
+        _strokes = _undoStack.removeLast();
       });
     }
   }
@@ -379,8 +403,11 @@ class _MyWidgetState extends State<MyWidget> {
   void _redo() {
     if (_canRedo) {
       setState(() {
-        final stroke = _redoStack.removeLast();
-        _strokes.add(stroke);
+        // Save current state to undo stack
+        _undoStack.add(List.from(_strokes));
+        
+        // Restore next state from redo stack
+        _strokes = _redoStack.removeLast();
       });
     }
   }
@@ -388,6 +415,7 @@ class _MyWidgetState extends State<MyWidget> {
   void _clear() {
     setState(() {
       _strokes = [];
+      _undoStack = [];
       _redoStack = [];
     });
   }
@@ -411,8 +439,28 @@ class _MyWidgetState extends State<MyWidget> {
         strokes: _strokes,
         onStrokeDrawn: (stroke) {
           setState(() {
+            // Save current state before modifying
+            _undoStack.add(List.from(_strokes));
+            
+            // Add new stroke
             _strokes = [..._strokes, stroke];
-            _redoStack = []; // Clear redo stack on new stroke
+            
+            // Clear redo stack on new action
+            _redoStack = [];
+          });
+        },
+        onStrokesRemoved: (removedStrokes) {
+          setState(() {
+            // Save current state before modifying
+            _undoStack.add(List.from(_strokes));
+            
+            // Remove strokes
+            _strokes = _strokes
+                .where((s) => !removedStrokes.contains(s))
+                .toList();
+            
+            // Clear redo stack on new action
+            _redoStack = [];
           });
         },
       ),
@@ -420,6 +468,13 @@ class _MyWidgetState extends State<MyWidget> {
   }
 }
 ```
+
+**Why this approach?**
+- **Simpler**: No need to track what changed (add/remove/modify)
+- **Consistent**: Works for all operations uniformly
+- **Reliable**: Always maintains correct state
+
+**Note**: For apps with very large canvases (1000s of strokes), consider using a more memory-efficient approach like storing only deltas.
 
 ### Export to Image
 

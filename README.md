@@ -20,7 +20,8 @@ This package focuses on providing a flexible drawing widget, leaving app-specifi
 🎨 **Flexible stroke handling** - Customize behavior per input device or any other criteria  
 🖌️ **Built-in smoothing** - Catmull-Rom spline interpolation included  
 ⚙️ **Fully customizable** - Colors, widths, smoothing algorithms  
-🧹 **Eraser mode** - Built-in support for erasing strokes
+🧹 **Multiple erasing modes** - Pixel-level and stroke-level erasing  
+🔍 **Intersection detection** - Customizable stroke overlap detection
 
 ## Quick Start
 
@@ -126,21 +127,33 @@ Draw(
 | `strokes` | `List<Stroke>` | ✓ | List of strokes to display |
 | `onStrokeDrawn` | `void Function(Stroke)` | ✓ | Called when a stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` |  | Control stroke behavior based on input |
+| `onStrokesRemoved` | `void Function(List<Stroke>)` |  | Called when strokes are removed by erasing |
 | `strokeColor` | `Color` |  | Default stroke color |
 | `strokeWidth` | `double` |  | Default stroke width |
 | `backgroundColor` | `Color` |  | Canvas background color |
-| `isErasing` | `bool` |  | Default erasing mode |
+| `erasingBehavior` | `ErasingBehavior` |  | Erasing mode (`none`, `pixel`, `stroke`) |
 | `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
+| `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
 
 ### Stroke Properties
 
 ```dart
 class Stroke {
-  PointerDeviceKind deviceKind;  // Input device type
-  List<Offset> points;           // Stroke points
-  Color color;                   // Stroke color
-  double width;                  // Stroke width
-  bool isErasing;                // Eraser mode flag
+  PointerDeviceKind deviceKind;     // Input device type
+  List<Offset> points;              // Stroke points
+  Color color;                      // Stroke color
+  double width;                     // Stroke width
+  ErasingBehavior erasingBehavior;  // Erasing mode
+}
+```
+
+### ErasingBehavior
+
+```dart
+enum ErasingBehavior {
+  none,   // Normal drawing (default)
+  pixel,  // Pixel-level erasing (BlendMode.clear)
+  stroke, // Stroke-level erasing (removes entire strokes)
 }
 ```
 
