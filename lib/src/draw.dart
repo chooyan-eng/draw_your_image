@@ -74,6 +74,9 @@ class _DrawState extends State<Draw> {
   /// [Draw] only supports single touch drawing
   int? _activePointerId;
 
+  /// strokes removed by erasing within one removing stroke
+  List<Stroke> _removedStrokes = [];
+
   /// start drawing
   void _start(PointerDownEvent event) {
     final newStroke = Stroke(
@@ -110,6 +113,7 @@ class _DrawState extends State<Draw> {
       widget.onStrokeDrawn(_currentStroke!);
 
       setState(() => _currentStroke = null);
+      _removedStrokes.clear();
     }
   }
 
@@ -135,9 +139,15 @@ class _DrawState extends State<Draw> {
           _add(event.localPosition.dx, event.localPosition.dy);
 
           if (_currentStroke?.erasingBehavior == ErasingBehavior.stroke) {
-            final removedStrokes = detector(widget.strokes, _currentStroke!);
+            final removedStrokes = detector(
+              widget.strokes
+                  .where((stroke) => !_removedStrokes.contains(stroke))
+                  .toList(),
+              _currentStroke!,
+            );
             if (removedStrokes.isNotEmpty && widget.onStrokesRemoved != null) {
               widget.onStrokesRemoved!(removedStrokes);
+              _removedStrokes.addAll(removedStrokes);
             }
           }
         },

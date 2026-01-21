@@ -1,3 +1,7 @@
+## [0.5.1] - 2026.01.21
+
+* Fix the behavior of `ErasingBehavior.stroke`
+
 ## [0.5.0] - 2026.01.21
 
 * (*Breaking) `isErasing` is now `ErasingBehavior`. Legacy `isErasing: true` is equivalent to `ErasingBehavior.pixel`.
