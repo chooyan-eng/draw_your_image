@@ -127,6 +127,7 @@ Draw(
 | `strokes` | `List<Stroke>` | ✓ | List of strokes to display |
 | `onStrokeDrawn` | `void Function(Stroke)` | ✓ | Called when a stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` |  | Control stroke behavior based on input |
+| `onStrokeUpdated` | `Stroke? Function(Stroke)` |  | Modify stroke in real-time as points are added |
 | `onStrokesRemoved` | `void Function(List<Stroke>)` |  | Called when strokes are removed by erasing |
 | `strokeColor` | `Color` |  | Default stroke color |
 | `strokeWidth` | `double` |  | Default stroke width |

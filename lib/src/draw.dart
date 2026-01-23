@@ -26,6 +26,12 @@ class Draw extends StatefulWidget {
   final Stroke? Function(Stroke newStroke, Stroke? currentStroke)?
   onStrokeStarted;
 
+  /// Callback called when the current stroke is updated (point is added).
+  /// The current stroke is passed as an argument.
+  /// The return value will overwrite the currently drawing stroke.
+  /// If null is returned, the stroke will be canceled at that point.
+  final Stroke? Function(Stroke currentStroke)? onStrokeUpdated;
+
   /// [Color] for background of canvas.
   final Color backgroundColor;
 
@@ -54,6 +60,7 @@ class Draw extends StatefulWidget {
     required this.onStrokeDrawn,
     this.onStrokesRemoved,
     this.onStrokeStarted,
+    this.onStrokeUpdated,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
@@ -103,7 +110,14 @@ class _DrawState extends State<Draw> {
   /// add point when drawing is ongoing
   void _add(double x, double y) {
     if (_currentStroke != null) {
-      setState(() => _currentStroke!.points.add(Offset(x, y)));
+      setState(() {
+        _currentStroke!.points.add(Offset(x, y));
+
+        // Call onStrokeUpdated only if it is set
+        if (widget.onStrokeUpdated != null) {
+          _currentStroke = widget.onStrokeUpdated!(_currentStroke!);
+        }
+      });
     }
   }
 

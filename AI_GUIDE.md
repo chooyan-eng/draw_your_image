@@ -79,6 +79,23 @@ Stroke? Function(Stroke newStroke, Stroke? currentStroke)
 
 **Pattern**: Always check `currentStroke != null` first to handle ongoing strokes.
 
+### onStrokeUpdated Callback
+
+Called every time a point is added to the current stroke during drawing. This enables real-time stroke manipulation.
+
+```dart
+Stroke? Function(Stroke currentStroke)
+```
+
+- **currentStroke**: The stroke being drawn with the newly added point
+- **Return**: The modified stroke to continue drawing, or null to cancel
+
+**Key features**:
+- Called for each pointer move event during drawing
+- Allows real-time filtering, transformation, or styling
+- Can cancel the stroke by returning null
+- Enables dynamic effects that respond to stroke length, shape, or other properties
+
 ### Stylus Helper Extension
 
 When working with stylus input, this extension method is convenient for checking device types:
@@ -226,6 +243,133 @@ Draw(
 )
 ```
 
+### 6. Trailing Effect (Last N Points Only)
+
+Show only the last 30 points of the current stroke, creating a trailing effect.
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+  onStrokeUpdated: (currentStroke) {
+    return currentStroke.copyWith(
+      points: currentStroke.points.length > 30
+          ? currentStroke.points.sublist(currentStroke.points.length - 30)
+          : currentStroke.points,
+    );
+  },
+)
+```
+
+### 7. Dynamic Color Change
+
+Change stroke color gradually based on length (longer = more visible).
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+  onStrokeUpdated: (currentStroke) {
+    final pointCount = currentStroke.points.length;
+    final ratio = (pointCount / 500).clamp(0.0, 1.0);
+    
+    final newColor = Color.lerp(
+      currentStroke.color,
+      Colors.red,
+      ratio,
+    );
+    
+    return currentStroke.copyWith(color: newColor);
+  },
+)
+```
+
+### 8. Shape Recognition (Rectangle)
+
+Convert ongoing stroke to a rectangle shape using first and last points.
+
+```dart
+Draw(
+  strokes: _strokes,
+  smoothingFunc: SmoothingMode.none.converter, // Disable smoothing for sharp corners
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+  onStrokeUpdated: (currentStroke) {
+    return currentStroke.points.length > 2
+        ? currentStroke.copyWith(
+            points: [
+              currentStroke.points.first,
+              Offset(
+                currentStroke.points.first.dx,
+                currentStroke.points.last.dy,
+              ),
+              currentStroke.points.last,
+              Offset(
+                currentStroke.points.last.dx,
+                currentStroke.points.first.dy,
+              ),
+              currentStroke.points.first,
+            ],
+          )
+        : currentStroke;
+  },
+)
+```
+
+### 9. Point Filtering/Resampling
+
+Keep only points that are a certain distance apart for performance optimization.
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+  onStrokeUpdated: (currentStroke) {
+    if (currentStroke.points.length < 2) {
+      return currentStroke;
+    }
+    
+    final filtered = <Offset>[currentStroke.points.first];
+    const minDistance = 5.0;
+    
+    for (final point in currentStroke.points.skip(1)) {
+      final lastPoint = filtered.last;
+      final distance = (point - lastPoint).distance;
+      
+      if (distance >= minDistance) {
+        filtered.add(point);
+      }
+    }
+    
+    return currentStroke.copyWith(points: filtered);
+  },
+)
+```
+
+### 10. Stroke Length Limit
+
+Cancel stroke automatically when it exceeds a certain length.
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+  onStrokeUpdated: (currentStroke) {
+    // Cancel stroke if it gets too long
+    return currentStroke.points.length > 1000 ? null : currentStroke;
+  },
+)
+```
+
 ## Complete Example Template
 
 ```dart
@@ -352,6 +496,7 @@ _strokes = [..._strokes, stroke];
 | `intersectionDetector` | `IntersectionDetector` | Custom intersection detection function for stroke-level erasing |
 | `onStrokeDrawn` | `void Function(Stroke)` | Called when stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. Control whether to continue, modify, or prevent with return value |
+| `onStrokeUpdated` | `Stroke? Function(Stroke)` | Called when a point is added to current stroke. Enables real-time stroke manipulation |
 | `onStrokesRemoved` | `void Function(List<Stroke>)` | Called when strokes are removed by stroke-level erasing |
 
 ### Stroke Methods

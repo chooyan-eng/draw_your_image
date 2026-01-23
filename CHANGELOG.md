@@ -1,3 +1,7 @@
+## [0.6.0] - 2026.01.23
+
+* Add `onStrokeUpdated` callback for real-time stroke manipulation during drawing
+
 ## [0.5.1] - 2026.01.21
 
 * Fix the behavior of `ErasingBehavior.stroke`
