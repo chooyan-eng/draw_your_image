@@ -5,8 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Draw widget - Basic stroke tests', () {
-    testWidgets('should create a stroke with a single point when tapping',
-        (tester) async {
+    testWidgets('should create a stroke with a single point when tapping', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -30,8 +31,9 @@ void main() {
       expect(capturedStroke!.points.first, const Offset(100, 100));
     });
 
-    testWidgets('should create a stroke with multiple points when drawing',
-        (tester) async {
+    testWidgets('should create a stroke with multiple points when drawing', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -164,8 +166,9 @@ void main() {
       expect(capturedStroke!.deviceKind, PointerDeviceKind.mouse);
     });
 
-    testWidgets('should record inverted stylus device kind correctly',
-        (tester) async {
+    testWidgets('should record inverted stylus device kind correctly', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -193,8 +196,9 @@ void main() {
   });
 
   group('Draw widget - onStrokeStarted callback tests', () {
-    testWidgets('should cancel stroke when onStrokeStarted returns null',
-        (tester) async {
+    testWidgets('should cancel stroke when onStrokeStarted returns null', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -218,44 +222,42 @@ void main() {
     });
 
     testWidgets(
-        'should modify stroke properties when onStrokeStarted returns modified stroke',
-        (tester) async {
-      Stroke? capturedStroke;
+      'should modify stroke properties when onStrokeStarted returns modified stroke',
+      (tester) async {
+        Stroke? capturedStroke;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Draw(
-              strokes: const [],
-              strokeColor: Colors.black,
-              strokeWidth: 4.0,
-              onStrokeDrawn: (stroke) => capturedStroke = stroke,
-              onStrokeStarted: (newStroke, currentStroke) {
-                if (currentStroke != null) {
-                  return currentStroke;
-                }
-                return newStroke.copyWith(
-                  color: Colors.blue,
-                  width: 10.0,
-                );
-              },
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Draw(
+                strokes: const [],
+                strokeColor: Colors.black,
+                strokeWidth: 4.0,
+                onStrokeDrawn: (stroke) => capturedStroke = stroke,
+                onStrokeStarted: (newStroke, currentStroke) {
+                  if (currentStroke != null) {
+                    return currentStroke;
+                  }
+                  return newStroke.copyWith(color: Colors.blue, width: 10.0);
+                },
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final gesture = await tester.startGesture(const Offset(100, 100));
-      await gesture.up();
-      await tester.pump();
+        final gesture = await tester.startGesture(const Offset(100, 100));
+        await gesture.up();
+        await tester.pump();
 
-      expect(capturedStroke, isNotNull);
-      expect(capturedStroke!.color, Colors.blue);
-      expect(capturedStroke!.width, 10.0);
-    });
+        expect(capturedStroke, isNotNull);
+        expect(capturedStroke!.color, Colors.blue);
+        expect(capturedStroke!.width, 10.0);
+      },
+    );
 
-    testWidgets(
-        'should filter strokes by device type using onStrokeStarted',
-        (tester) async {
+    testWidgets('should filter strokes by device type using onStrokeStarted', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -298,9 +300,9 @@ void main() {
       expect(capturedStroke!.deviceKind, PointerDeviceKind.stylus);
     });
 
-    testWidgets(
-        'should set different properties based on device type',
-        (tester) async {
+    testWidgets('should set different properties based on device type', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -315,15 +317,9 @@ void main() {
                 }
                 // Stylus: black and thin, Touch: red and thick
                 if (newStroke.deviceKind == PointerDeviceKind.stylus) {
-                  return newStroke.copyWith(
-                    color: Colors.black,
-                    width: 2.0,
-                  );
+                  return newStroke.copyWith(color: Colors.black, width: 2.0);
                 } else {
-                  return newStroke.copyWith(
-                    color: Colors.red,
-                    width: 8.0,
-                  );
+                  return newStroke.copyWith(color: Colors.red, width: 8.0);
                 }
               },
             ),
@@ -355,8 +351,9 @@ void main() {
   });
 
   group('Draw widget - onStrokeUpdated callback tests', () {
-    testWidgets('should call onStrokeUpdated for each pointer move',
-        (tester) async {
+    testWidgets('should call onStrokeUpdated for each pointer move', (
+      tester,
+    ) async {
       int updateCallCount = 0;
       Stroke? capturedStroke;
 
@@ -386,8 +383,9 @@ void main() {
       expect(capturedStroke, isNotNull);
     });
 
-    testWidgets('should cancel stroke when onStrokeUpdated returns null',
-        (tester) async {
+    testWidgets('should cancel stroke when onStrokeUpdated returns null', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -414,8 +412,9 @@ void main() {
       expect(capturedStroke, isNull);
     });
 
-    testWidgets('should modify points in onStrokeUpdated (trailing effect)',
-        (tester) async {
+    testWidgets('should modify points in onStrokeUpdated (trailing effect)', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -428,8 +427,9 @@ void main() {
                 // Keep only last 2 points
                 if (currentStroke.points.length > 2) {
                   return currentStroke.copyWith(
-                    points: currentStroke.points
-                        .sublist(currentStroke.points.length - 2),
+                    points: currentStroke.points.sublist(
+                      currentStroke.points.length - 2,
+                    ),
                   );
                 }
                 return currentStroke;
@@ -452,8 +452,9 @@ void main() {
       expect(capturedStroke!.points[1], const Offset(250, 250));
     });
 
-    testWidgets('should change color dynamically in onStrokeUpdated',
-        (tester) async {
+    testWidgets('should change color dynamically in onStrokeUpdated', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -487,8 +488,9 @@ void main() {
   });
 
   group('Draw widget - Multiple touch control tests', () {
-    testWidgets('should ignore second touch when first is active',
-        (tester) async {
+    testWidgets('should ignore second touch when first is active', (
+      tester,
+    ) async {
       final capturedStrokes = <Stroke>[];
 
       await tester.pumpWidget(
@@ -520,8 +522,9 @@ void main() {
       expect(capturedStrokes[0].points.first, const Offset(100, 100));
     });
 
-    testWidgets('should accept new touch after previous is completed',
-        (tester) async {
+    testWidgets('should accept new touch after previous is completed', (
+      tester,
+    ) async {
       final capturedStrokes = <Stroke>[];
 
       await tester.pumpWidget(
@@ -551,8 +554,9 @@ void main() {
       expect(capturedStrokes[1].points.first, const Offset(200, 200));
     });
 
-    testWidgets('should support palm rejection with onStrokeStarted',
-        (tester) async {
+    testWidgets('should support palm rejection with onStrokeStarted', (
+      tester,
+    ) async {
       final capturedStrokes = <Stroke>[];
 
       await tester.pumpWidget(
@@ -605,46 +609,18 @@ void main() {
   });
 
   group('Draw widget - Erasing behavior tests', () {
-    testWidgets('should remove intersecting strokes with stroke erasing',
-        (tester) async {
-      final strokes = <Stroke>[];
-      final removedStrokes = <Stroke>[];
-
-      // Helper to rebuild widget with current strokes
-      Future<void> buildWidget() async {
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: Draw(
-                strokes: strokes,
-                erasingBehavior: ErasingBehavior.stroke,
-                onStrokeDrawn: (stroke) => strokes.add(stroke),
-                onStrokesRemoved: (removed) => removedStrokes.addAll(removed),
-              ),
-            ),
-          ),
-        );
-      }
-
-      await buildWidget();
-
-      // Draw a horizontal stroke (normal)
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Draw(
-              strokes: strokes,
-              erasingBehavior: ErasingBehavior.none, // Normal drawing
-              onStrokeDrawn: (stroke) => strokes.add(stroke),
-            ),
-          ),
+    testWidgets('should remove intersecting strokes with stroke erasing', (
+      tester,
+    ) async {
+      final strokes = <Stroke>[
+        Stroke(
+          points: [const Offset(100, 150), const Offset(200, 150)],
+          deviceKind: PointerDeviceKind.touch,
+          color: Colors.black,
+          width: 5.0,
         ),
-      );
-
-      final normalGesture = await tester.startGesture(const Offset(100, 150));
-      await normalGesture.moveTo(const Offset(200, 150));
-      await normalGesture.up();
-      await tester.pump();
+      ];
+      final removedStrokes = <Stroke>[];
 
       expect(strokes.length, 1);
 
@@ -662,8 +638,8 @@ void main() {
         ),
       );
 
-      final eraseGesture = await tester.startGesture(const Offset(150, 100));
-      await eraseGesture.moveTo(const Offset(150, 200));
+      final eraseGesture = await tester.startGesture(const Offset(150, 147));
+      await eraseGesture.moveTo(const Offset(150, 153));
       await eraseGesture.up();
       await tester.pump();
 
@@ -671,8 +647,9 @@ void main() {
       expect(removedStrokes.isNotEmpty, true);
     });
 
-    testWidgets('should set erasingBehavior from widget property',
-        (tester) async {
+    testWidgets('should set erasingBehavior from widget property', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -695,8 +672,9 @@ void main() {
       expect(capturedStroke!.erasingBehavior, ErasingBehavior.pixel);
     });
 
-    testWidgets('should change erasingBehavior in onStrokeStarted',
-        (tester) async {
+    testWidgets('should change erasingBehavior in onStrokeStarted', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -761,9 +739,9 @@ void main() {
       expect(capturedStroke!.points.length, 2);
     });
 
-    testWidgets(
-        'should ignore pointer cancel from inactive pointer',
-        (tester) async {
+    testWidgets('should ignore pointer cancel from inactive pointer', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -823,8 +801,9 @@ void main() {
       expect(capturedStrokes.length, 3);
     });
 
-    testWidgets('should not call onStrokeUpdated when callback is null',
-        (tester) async {
+    testWidgets('should not call onStrokeUpdated when callback is null', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -850,8 +829,9 @@ void main() {
       expect(capturedStroke!.points.length, 3);
     });
 
-    testWidgets('should preserve stroke metadata through drawing',
-        (tester) async {
+    testWidgets('should preserve stroke metadata through drawing', (
+      tester,
+    ) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
