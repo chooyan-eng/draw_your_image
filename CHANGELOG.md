@@ -1,3 +1,7 @@
+## [0.6.1] - 2026.01.26
+
+* Fixed a bug when starting strokes
+
 ## [0.6.0] - 2026.01.23
 
 * Add `onStrokeUpdated` callback for real-time stroke manipulation during drawing

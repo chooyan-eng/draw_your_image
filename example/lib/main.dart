@@ -19,6 +19,9 @@ class MyHomePage extends StatefulWidget {
 /// Type definition for local state for undo/redo functionality
 typedef StrokeState = List<Stroke>;
 
+/// Stroke update mode for onStrokeUpdated callback
+enum StrokeUpdateMode { none, trailing, rectangle, colorByLength }
+
 class _MyHomePageState extends State<MyHomePage> {
   var _strokes = <Stroke>[];
 
@@ -30,6 +33,7 @@ class _MyHomePageState extends State<MyHomePage> {
   PointerDeviceKind? _currentDevice;
   PointerDeviceKind? _visibleDevice;
   ErasingBehavior _erasingBehavior = ErasingBehavior.none;
+  StrokeUpdateMode _strokeUpdateMode = StrokeUpdateMode.none;
 
   bool get _canUndo => _undoStack.isNotEmpty;
   bool get _canRedo => _redoStack.isNotEmpty;
@@ -137,6 +141,64 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ],
                 ),
+                SizedBox(height: 16),
+                Text(
+                  'Stroke Update Mode:',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.center,
+                  children: [
+                    FilterChip(
+                      label: Text('None'),
+                      selected: _strokeUpdateMode == StrokeUpdateMode.none,
+                      onSelected: (selected) {
+                        setState(
+                          () => _strokeUpdateMode = StrokeUpdateMode.none,
+                        );
+                      },
+                    ),
+                    FilterChip(
+                      label: Text('Trailing'),
+                      selected: _strokeUpdateMode == StrokeUpdateMode.trailing,
+                      onSelected: (selected) {
+                        setState(
+                          () => _strokeUpdateMode = StrokeUpdateMode.trailing,
+                        );
+                      },
+                      selectedColor: Colors.purple[100],
+                    ),
+                    FilterChip(
+                      label: Text('Rectangle'),
+                      selected: _strokeUpdateMode == StrokeUpdateMode.rectangle,
+                      onSelected: (selected) {
+                        setState(
+                          () => _strokeUpdateMode = StrokeUpdateMode.rectangle,
+                        );
+                      },
+                      selectedColor: Colors.blue[100],
+                    ),
+                    FilterChip(
+                      label: Text('Color by Length'),
+                      selected:
+                          _strokeUpdateMode == StrokeUpdateMode.colorByLength,
+                      onSelected: (selected) {
+                        setState(
+                          () => _strokeUpdateMode =
+                              StrokeUpdateMode.colorByLength,
+                        );
+                      },
+                      selectedColor: Colors.green[100],
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -167,14 +229,26 @@ class _MyHomePageState extends State<MyHomePage> {
                             .toList(),
                         strokeColor: Colors.black,
                         strokeWidth: 4.0,
-                        backgroundColor: Colors.white,
+                        backgroundColor: const Color.fromRGBO(255, 255, 255, 1),
                         erasingBehavior: _erasingBehavior,
+                        smoothingFunc:
+                            _strokeUpdateMode == StrokeUpdateMode.rectangle
+                            ? SmoothingMode.none.converter
+                            : null,
                         onStrokeDrawn: (stroke) {
                           setState(() => _currentDevice = null);
                           if (stroke.shouldPaint) {
+                            final reducedStroke = stroke.copyWith(
+                              points: stroke.points.reduced(epsilon: 0.5),
+                            );
+                            final before = stroke.points.length;
+                            final after = reducedStroke.points.length;
+                            debugPrint(
+                              'Before: $before points, After: $after points',
+                            );
                             setState(() {
                               _undoStack.add(List.from(_strokes));
-                              _strokes = [..._strokes, stroke];
+                              _strokes = [..._strokes, reducedStroke];
                               _redoStack = [];
                             });
                           }
@@ -188,7 +262,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             color:
                                 newStroke.deviceKind == PointerDeviceKind.stylus
                                 ? Colors.blue
-                                : Colors.green,
+                                : Colors.blue,
                             width:
                                 newStroke.deviceKind == PointerDeviceKind.stylus
                                 ? 4.0
@@ -206,6 +280,18 @@ class _MyHomePageState extends State<MyHomePage> {
                                 .where((stroke) => !value.contains(stroke))
                                 .toList();
                           });
+                        },
+                        onStrokeUpdated: (currentStroke) {
+                          switch (_strokeUpdateMode) {
+                            case StrokeUpdateMode.none:
+                              return _noEffect(currentStroke);
+                            case StrokeUpdateMode.trailing:
+                              return _trailingEffect(currentStroke);
+                            case StrokeUpdateMode.rectangle:
+                              return _rectangleShape(currentStroke);
+                            case StrokeUpdateMode.colorByLength:
+                              return _colorByLength(currentStroke);
+                          }
                         },
                       ),
                     ),
@@ -347,5 +433,51 @@ class _MyHomePageState extends State<MyHomePage> {
         ],
       ),
     );
+  }
+
+  /// No effect - returns the stroke as-is
+  Stroke? _noEffect(Stroke currentStroke) {
+    return currentStroke;
+  }
+
+  /// Trailing effect - keeps only the last 30 points
+  Stroke? _trailingEffect(Stroke currentStroke) {
+    return currentStroke.copyWith(
+      points: currentStroke.points.length > 30
+          ? currentStroke.points.sublist(currentStroke.points.length - 30)
+          : currentStroke.points,
+    );
+  }
+
+  /// Rectangle shape - draws a rectangle using first and last points
+  Stroke? _rectangleShape(Stroke currentStroke) {
+    return currentStroke.points.length > 2
+        ? currentStroke.copyWith(
+            points: [
+              currentStroke.points.first,
+              Offset(
+                currentStroke.points.first.dx,
+                currentStroke.points.last.dy,
+              ),
+              currentStroke.points.last,
+              Offset(
+                currentStroke.points.last.dx,
+                currentStroke.points.first.dy,
+              ),
+              currentStroke.points.first,
+            ],
+          )
+        : currentStroke;
+  }
+
+  /// Color by length - changes color based on stroke length
+  Stroke? _colorByLength(Stroke currentStroke) {
+    final pointCount = currentStroke.points.length;
+    final ratio = (pointCount / 5000).clamp(0.0, 1.0);
+    final originalColor = currentStroke.color;
+
+    final newColor = Color.lerp(originalColor, Colors.greenAccent, ratio);
+
+    return currentStroke.copyWith(color: newColor);
   }
 }

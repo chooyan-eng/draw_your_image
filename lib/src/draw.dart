@@ -94,17 +94,18 @@ class _DrawState extends State<Draw> {
       erasingBehavior: widget.erasingBehavior,
     );
 
-    final effectiveStroke =
-        widget.onStrokeStarted?.call(newStroke, _currentStroke) ??
-        _currentStroke;
+    final effectiveStroke = switch (widget.onStrokeStarted) {
+      // if onStrokeStarted null, _currentStroke has priority
+      null => _currentStroke ?? newStroke,
+      // if provided, respect the result of the callback
+      final callback => callback(newStroke, _currentStroke),
+    };
 
     if (_currentStroke != effectiveStroke) {
       _activePointerId = event.pointer;
     }
 
-    setState(() {
-      _currentStroke = effectiveStroke;
-    });
+    setState(() => _currentStroke = effectiveStroke);
   }
 
   /// add point when drawing is ongoing
