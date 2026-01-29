@@ -135,6 +135,7 @@ Draw(
 | `erasingBehavior` | `ErasingBehavior` |  | Erasing mode (`none`, `pixel`, `stroke`) |
 | `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
 | `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
+| `shouldAbsorb` | `bool Function(PointerDownEvent)` |  | Control whether to absorb pointer events |
 
 ### Stroke Properties
 
@@ -166,6 +167,35 @@ Smoothing algorithm is also customizable. You can choose pre-defined functions b
 SmoothingMode.catmullRom.converter  // Smooth curves (default)
 SmoothingMode.none.converter        // No smoothing (straight lines)
 ```
+
+## Using with InteractiveViewer
+
+The `shouldAbsorb` callback allows you to control which pointer events are handled by the `Draw` widget versus parent widgets like `InteractiveViewer`. This enables powerful combinations like:
+
+- **Touch for pan/zoom, stylus for drawing**
+- **Device-specific gesture handling**
+- **Conditional pointer event absorption**
+
+```dart
+InteractiveViewer(
+  child: Draw(
+    strokes: _strokes,
+    shouldAbsorb: (event) {
+      // Absorb stylus events for drawing, let touch events pass through for pan/zoom
+      return event.kind == PointerDeviceKind.stylus ||
+             event.kind == PointerDeviceKind.invertedStylus;
+    },
+    onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+    onStrokeStarted: (newStroke, currentStroke) {
+      if (currentStroke != null) return currentStroke;
+      // Only draw with stylus (touch is for pan/zoom)
+      return newStroke.deviceKind == PointerDeviceKind.stylus ? newStroke : null;
+    },
+  ),
+)
+```
+
+See the [example app](example/lib/main.dart) for a complete implementation of touch-for-pan/stylus-for-draw functionality.
 
 ## Working with AI Assistants
 

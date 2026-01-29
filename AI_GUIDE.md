@@ -494,6 +494,7 @@ _strokes = [..._strokes, stroke];
 | `erasingBehavior` | `ErasingBehavior` | Erasing mode (none/pixel/stroke) |
 | `smoothingFunc` | `Path Function(Stroke)` | Smoothing function |
 | `intersectionDetector` | `IntersectionDetector` | Custom intersection detection function for stroke-level erasing |
+| `shouldAbsorb` | `bool Function(PointerDownEvent)` | Control whether to absorb pointer events from parent widgets |
 | `onStrokeDrawn` | `void Function(Stroke)` | Called when stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. Control whether to continue, modify, or prevent with return value |
 | `onStrokeUpdated` | `Stroke? Function(Stroke)` | Called when a point is added to current stroke. Enables real-time stroke manipulation |
@@ -651,9 +652,13 @@ class _MyWidgetState extends State<MyWidget> {
 }
 ```
 
-### Canvas Zoom/Pan
+### Canvas Zoom/Pan with InteractiveViewer
 
-Use `InteractiveViewer` to add zoom and pan functionality:
+There are two approaches to integrate `Draw` with `InteractiveViewer` for zoom/pan functionality:
+
+#### Approach 1: Disable InteractiveViewer while drawing (Simple)
+
+Disable pan/zoom gestures while drawing using state management:
 
 ```dart
 class _MyWidgetState extends State<MyWidget> {
@@ -663,7 +668,7 @@ class _MyWidgetState extends State<MyWidget> {
   @override
   Widget build(BuildContext context) {
     return InteractiveViewer(
-      // surpress scale/pan when drawing
+      // suppress scale/pan when drawing
       scaleEnabled: !_isDrawing,
       panEnabled: !_isDrawing, 
       child: Draw(
@@ -674,7 +679,7 @@ class _MyWidgetState extends State<MyWidget> {
             _isDrawing = false;
           });
         },
-        onStrokeStarted(newStroke, _) {
+        onStrokeStarted: (newStroke, _) {
           setState(() => _isDrawing = true);
           return newStroke;
         }
@@ -683,6 +688,63 @@ class _MyWidgetState extends State<MyWidget> {
   }
 }
 ```
+
+**Pros**: Simple, works for all input devices
+**Cons**: Requires state management, always disables pan/zoom while drawing
+
+#### Approach 2: Device-specific absorption with shouldAbsorb (Recommended)
+
+Use `shouldAbsorb` to selectively absorb pointer events based on device type. This allows touch for pan/zoom while stylus for drawing:
+
+```dart
+class _MyWidgetState extends State<MyWidget> {
+  List<Stroke> _strokes = [];
+
+  @override
+  Widget build(BuildContext context) {
+    return InteractiveViewer(
+      child: Draw(
+        strokes: _strokes,
+        // Absorb stylus events, let touch events pass through to InteractiveViewer
+        shouldAbsorb: (event) {
+          return event.kind == PointerDeviceKind.stylus ||
+                 event.kind == PointerDeviceKind.invertedStylus;
+        },
+        onStrokeDrawn: (stroke) {
+          setState(() => _strokes.add(stroke));
+        },
+        onStrokeStarted: (newStroke, currentStroke) {
+          if (currentStroke != null) {
+            return currentStroke;
+          }
+          // Only draw with stylus
+          if (newStroke.deviceKind == PointerDeviceKind.stylus) {
+            return newStroke;
+          }
+          // Ignore touch (let it be handled by InteractiveViewer)
+          return null;
+        },
+      ),
+    );
+  }
+}
+```
+
+**Pros**: 
+- Touch can be used for pan/zoom (InteractiveViewer)
+- Stylus can be used for drawing (Draw widget)
+- No state management needed
+- Natural separation of concerns
+
+**Cons**: Requires devices that support both touch and stylus
+
+**Key Points**:
+- `shouldAbsorb` returns `true` to absorb pointer events (prevent from reaching InteractiveViewer)
+- `shouldAbsorb` returns `false` to let pointer events pass through (allow InteractiveViewer to handle)
+- Common pattern: absorb stylus, pass through touch
+- Must coordinate with `onStrokeStarted` to ensure consistent behavior
+
+**Important**: When using `shouldAbsorb`, make sure `onStrokeStarted` behavior matches. If you absorb stylus events, you should also handle them in `onStrokeStarted`. If you don't absorb touch events, you should typically return `null` for touch in `onStrokeStarted`.
 
 ## Related Resources
 

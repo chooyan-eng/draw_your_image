@@ -1,3 +1,7 @@
+## [0.7.0] - 2026.01.29
+
+* Add `shouldAbsorb` callback to control pointer event absorption for pan/zoom gesture on ancestor widgets, typically `InteractiveViewer`. 
+
 ## [0.6.1] - 2026.01.26
 
 * Fixed a bug when starting strokes
