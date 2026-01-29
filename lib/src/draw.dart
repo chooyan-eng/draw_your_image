@@ -1,6 +1,7 @@
 import 'package:draw_your_image/src/intersection_detection.dart';
 import 'package:draw_your_image/src/smoothing.dart';
 import 'package:draw_your_image/src/stroke.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 /// A widget representing a canvas for drawing.
@@ -54,6 +55,14 @@ class Draw extends StatefulWidget {
   /// should be removed by the erasing stroke.
   final IntersectionDetector? intersectionDetector;
 
+  /// Function to determine whether to absorb pan/zoom pointer events.
+  /// This is useful when using [Draw] inside an [InteractiveViewer] and
+  /// you want to disable pan/zoom while drawing.
+  /// When the function returns true for a pointer down event,
+  /// the pointer event will be absorbed by [Draw], preventing
+  /// it from being passed to parent widgets like [InteractiveViewer].
+  final bool Function(PointerDownEvent event)? shouldAbsorb;
+
   const Draw({
     super.key,
     required this.strokes,
@@ -67,6 +76,7 @@ class Draw extends StatefulWidget {
     this.erasingBehavior = ErasingBehavior.none,
     this.smoothingFunc,
     this.intersectionDetector,
+    this.shouldAbsorb,
   });
 
   @override
@@ -176,15 +186,43 @@ class _DrawState extends State<Draw> {
           _activePointerId = null;
           _complete();
         },
-        child: CustomPaint(
-          painter: _FreehandPainter(
-            strokesToPaint.where((stroke) => stroke.shouldPaint).toList(),
-            widget.backgroundColor,
-            converter,
+        child: RawGestureDetector(
+          gestures: widget.shouldAbsorb != null
+              ? {
+                  _AbsorbableScaleGestureRecognizer:
+                      GestureRecognizerFactoryWithHandlers<
+                        _AbsorbableScaleGestureRecognizer
+                      >(
+                        () => _AbsorbableScaleGestureRecognizer(
+                          shouldAbsorb: widget.shouldAbsorb!,
+                        ),
+                        (instance) {},
+                      ),
+                }
+              : const {},
+          child: CustomPaint(
+            painter: _FreehandPainter(
+              strokesToPaint.where((stroke) => stroke.shouldPaint).toList(),
+              widget.backgroundColor,
+              converter,
+            ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _AbsorbableScaleGestureRecognizer extends ScaleGestureRecognizer {
+  _AbsorbableScaleGestureRecognizer({required this.shouldAbsorb});
+
+  final bool Function(PointerDownEvent event) shouldAbsorb;
+
+  @override
+  void addPointer(PointerDownEvent event) {
+    if (shouldAbsorb(event)) {
+      super.addPointer(event);
+    }
   }
 }
 
