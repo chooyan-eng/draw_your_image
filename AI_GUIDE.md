@@ -370,6 +370,472 @@ Draw(
 )
 ```
 
+## Advanced Stroke Rendering with strokePainter
+
+The `strokePainter` callback enables advanced visual effects by giving you full control over how strokes are rendered. Instead of using a single paint configuration, you can return multiple `Paint` objects that are applied in sequence, enabling effects like multi-layer strokes with borders, shadows, gradients, and fragment shader effects.
+
+### What is strokePainter?
+
+`strokePainter` is a callback function that takes a `Stroke` and returns a list of `Paint` objects:
+
+```dart
+typedef StrokePainter = List<Paint> Function(Stroke stroke);
+```
+
+**Key characteristics:**
+- Called once per stroke during rendering
+- Returns a list of `Paint` objects that are applied sequentially to the stroke path
+- Each `Paint` is drawn on the same stroke path
+- Later paints are drawn on top of earlier ones (layering effect)
+- If not provided, uses `defaultStrokePainter` which renders solid color strokes
+
+**Default behavior:**
+```dart
+List<Paint> defaultStrokePainter(Stroke stroke) => [
+  paintWithDefault(stroke),
+];
+```
+
+### How strokePainter Works
+
+The `Draw` widget calls your `strokePainter` function for each stroke and applies all returned paints to the stroke path:
+
+```dart
+// Simplified rendering logic
+for (final stroke in strokes) {
+  final path = smoothingFunc(stroke);     // Convert stroke to Path
+  final paints = strokePainter(stroke);   // Your custom function
+
+  for (final paint in paints) {
+    canvas.drawPath(path, paint);         // Draw each paint in order
+  }
+}
+```
+
+**Important notes:**
+- All paints are drawn on the same path (the stroke's smoothed points)
+- Order matters: first paint is drawn first (bottom layer), last paint is on top
+- If you need canvas size (e.g., for gradients or shaders), use `LayoutBuilder` to measure the `Draw` widget's size - the canvas will be the same size
+
+### Utility Functions
+
+The package provides two utility functions to simplify `Paint` creation:
+
+**`paintWithDefault(Stroke stroke)`**
+
+Creates a `Paint` with the stroke's default properties:
+- Uses `stroke.color` for color
+- Uses `stroke.width` for stroke width
+- Sets `StrokeCap.round` for rounded ends
+- Sets `PaintingStyle.stroke` for outline drawing
+- Handles pixel erasing (`ErasingBehavior.pixel`) automatically with `BlendMode.clear`
+
+```dart
+strokePainter: (stroke) => [paintWithDefault(stroke)]
+```
+
+**`paintWithOverride(Stroke stroke, {...})`**
+
+Creates a `Paint` with overridden properties while keeping defaults for unspecified values:
+
+Parameters:
+- `strokeColor` - Override the stroke color (defaults to `stroke.color`)
+- `strokeWidth` - Override the stroke width (defaults to `stroke.width`)
+- `strokeCap` - Override the stroke cap style (defaults to `StrokeCap.round`)
+- `style` - Override the painting style (defaults to `PaintingStyle.stroke`)
+
+```dart
+strokePainter: (stroke) => [
+  paintWithOverride(stroke,
+    strokeWidth: stroke.width * 2,
+    strokeColor: Colors.black,
+  ),
+]
+```
+
+**Key advantage:** Both functions automatically handle erasing behavior, ensuring `BlendMode.clear` is used for pixel erasing.
+
+### Common Use Cases with strokePainter
+
+#### 1. Paint Layering for Borders and Outlines
+
+Create strokes with multiple layers to add borders, shadows, and highlights by returning multiple paint objects.
+
+```dart
+List<Paint> multiLayerPainter(Stroke stroke) {
+  return [
+    // Layer 1: Drop shadow (bottom layer)
+    paintWithOverride(
+      stroke,
+      strokeWidth: stroke.width + 6,
+      strokeColor: Colors.black26,
+    )..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+
+    // Layer 2: Outer border
+    paintWithOverride(
+      stroke,
+      strokeWidth: stroke.width + 4,
+      strokeColor: Colors.black,
+    ),
+
+    // Layer 3: White highlight border
+    paintWithOverride(
+      stroke,
+      strokeWidth: stroke.width + 2,
+      strokeColor: Colors.white70,
+    ),
+
+    // Layer 4: Main stroke (top layer)
+    paintWithOverride(
+      stroke,
+      strokeWidth: stroke.width,
+      strokeColor: Colors.blue,
+    ),
+  ];
+}
+
+// Usage
+Draw(
+  strokes: _strokes,
+  strokeWidth: 8.0,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+  strokePainter: multiLayerPainter,
+)
+```
+
+**Key points:**
+- Return multiple paints in a list
+- First paint = bottom layer, last paint = top layer
+- Increment stroke width for each outer layer
+- Use `..maskFilter` for blur/glow effects
+- This example does NOT need LayoutBuilder since it doesn't use canvas size
+
+#### 2. Fragment Shader for Rich Stroke Rendering
+
+Use Flutter's Fragment Shaders for dynamic, GPU-accelerated effects.
+
+**Shader file** (`shaders/tint.frag`):
+
+```glsl
+#version 460 core
+#include <flutter/runtime_effect.glsl>
+
+uniform float u_time;
+uniform vec2 u_resolution;
+
+out vec4 fragColor;
+
+void main() {
+  vec2 uv = FlutterFragCoord().xy / u_resolution;
+  vec2 center = uv - 0.5;
+  float dist = length(center);
+
+  // Animated color based on time and position
+  vec3 color = vec3(
+    0.5 + 0.5 * sin(u_time + dist * 3.0),
+    0.5 + 0.5 * sin(u_time + dist * 3.0 + 2.0),
+    0.5 + 0.5 * sin(u_time + dist * 3.0 + 4.0)
+  );
+
+  fragColor = vec4(color, 1.0);
+}
+```
+
+**Add to `pubspec.yaml`:**
+
+```yaml
+flutter:
+  shaders:
+    - shaders/tint.frag
+```
+
+**Dart implementation:**
+
+```dart
+class _MyWidgetState extends State<MyWidget> with SingleTickerProviderStateMixin {
+  ui.FragmentProgram? _shaderProgram;
+  late Ticker _ticker;
+  double _time = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    ui.FragmentProgram.fromAsset('shaders/tint.frag').then((program) {
+      setState(() => _shaderProgram = program);
+    });
+    _ticker = createTicker((elapsed) {
+      setState(() => _time = elapsed.inMilliseconds / 1000.0);
+    })..start();
+  }
+
+  List<Paint> fragmentShaderPainter(Stroke stroke, Size canvasSize) {
+    if (_shaderProgram == null) return [paintWithDefault(stroke)];
+
+    final shader = _shaderProgram!.fragmentShader();
+    shader.setFloat(0, _time);                // u_time
+    shader.setFloat(1, canvasSize.width);     // u_resolution.x
+    shader.setFloat(2, canvasSize.height);    // u_resolution.y
+
+    return [
+      Paint()
+        ..shader = shader
+        ..strokeWidth = stroke.width
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    ];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+        return Draw(
+          strokes: _strokes,
+          strokeWidth: 8.0,
+          onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+          strokePainter: (stroke) => fragmentShaderPainter(stroke, canvasSize),
+        );
+      },
+    );
+  }
+}
+```
+
+**Key points:**
+- Load shader with `FragmentProgram.fromAsset()`
+- Create new shader instance with `.fragmentShader()` for each stroke
+- Set uniforms with `setFloat(index, value)`
+- Use `LayoutBuilder` to get canvas size for u_resolution uniform
+
+#### 3. Gradients for Colorful Strokes
+
+Apply gradient effects using Flutter's built-in gradient shaders.
+
+**Linear gradient:**
+
+```dart
+List<Paint> linearGradientPainter(Stroke stroke, Size canvasSize) {
+  final gradient = ui.Gradient.linear(
+    Offset.zero,
+    Offset(canvasSize.width, canvasSize.height),
+    [Colors.blue, Colors.purple, Colors.pink],
+    [0.0, 0.5, 1.0],  // Optional color stops
+  );
+
+  return [
+    Paint()
+      ..shader = gradient
+      ..strokeWidth = stroke.width
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke,
+  ];
+}
+```
+
+**Radial gradient:**
+
+```dart
+List<Paint> radialGradientPainter(Stroke stroke, Size canvasSize) {
+  final center = Offset(canvasSize.width / 2, canvasSize.height / 2);
+  final radius = math.max(canvasSize.width, canvasSize.height) / 2;
+
+  final gradient = ui.Gradient.radial(
+    center,
+    radius,
+    [Colors.yellow, Colors.orange, Colors.red],
+  );
+
+  return [
+    Paint()
+      ..shader = gradient
+      ..strokeWidth = stroke.width
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke,
+  ];
+}
+```
+
+**Sweep gradient:**
+
+```dart
+List<Paint> sweepGradientPainter(Stroke stroke, Size canvasSize) {
+  final center = Offset(canvasSize.width / 2, canvasSize.height / 2);
+
+  final gradient = ui.Gradient.sweep(
+    center,
+    [
+      Colors.red,
+      Colors.yellow,
+      Colors.green,
+      Colors.cyan,
+      Colors.blue,
+      Colors.magenta,
+      Colors.red,  // Back to red for smooth loop
+    ],
+  );
+
+  return [
+    Paint()
+      ..shader = gradient
+      ..strokeWidth = stroke.width
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke,
+  ];
+}
+```
+
+**Usage with LayoutBuilder:**
+
+```dart
+import 'dart:ui' as ui;
+import 'dart:math' as math;
+
+LayoutBuilder(
+  builder: (context, constraints) {
+    final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+    return Draw(
+      strokes: _strokes,
+      strokeWidth: 8.0,
+      onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+      strokePainter: (stroke) => linearGradientPainter(stroke, canvasSize),
+    );
+  },
+)
+```
+
+**Gradient types:**
+- **Linear** - `ui.Gradient.linear(start, end, colors, [stops])` - Goes from start point to end point
+- **Radial** - `ui.Gradient.radial(center, radius, colors, [stops])` - Radiates from center point outward
+- **Sweep** - `ui.Gradient.sweep(center, colors, [stops])` - Rotates around center point
+
+**Combining with multi-layer:**
+
+```dart
+List<Paint> gradientWithBorder(Stroke stroke, Size canvasSize) {
+  final gradient = ui.Gradient.linear(
+    Offset.zero,
+    Offset(canvasSize.width, canvasSize.height),
+    [Colors.blue, Colors.purple],
+  );
+
+  return [
+    // Black border (bottom)
+    paintWithOverride(stroke,
+      strokeWidth: stroke.width + 2,
+      strokeColor: Colors.black,
+    ),
+    // Gradient fill (top)
+    Paint()
+      ..shader = gradient
+      ..strokeWidth = stroke.width
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke,
+  ];
+}
+```
+
+### Common Mistakes
+
+❌ **Forgetting to get canvas size when needed (gradients, shaders)**
+```dart
+// Wrong: No canvas size available
+Draw(
+  strokePainter: (stroke) {
+    final gradient = ui.Gradient.linear(/* Need canvas size! */);
+  },
+)
+```
+
+✅ **Use LayoutBuilder when canvas size is required**
+```dart
+// Correct
+LayoutBuilder(
+  builder: (context, constraints) {
+    final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+    return Draw(
+      strokePainter: (stroke) => gradientPainter(stroke, canvasSize),
+    );
+  },
+)
+```
+
+❌ **Creating Paint without erasing handling**
+```dart
+// Wrong: Doesn't handle ErasingBehavior.pixel
+Paint()
+  ..strokeWidth = stroke.width
+  ..color = stroke.color
+```
+
+✅ **Use utility functions for proper handling**
+```dart
+// Correct: Handles erasing automatically
+paintWithDefault(stroke)
+
+// Or with overrides:
+paintWithOverride(stroke, strokeColor: Colors.red)
+```
+
+❌ **Reusing shader instances across strokes**
+```dart
+// Wrong: Shader created once, reused
+final shader = _program.fragmentShader();
+strokePainter: (stroke) {
+  return [Paint()..shader = shader];  // Same instance for all strokes!
+}
+```
+
+✅ **Create new shader instance per stroke**
+```dart
+// Correct: Fresh shader for each stroke
+strokePainter: (stroke) {
+  final shader = _program!.fragmentShader();
+  shader.setFloat(0, _time);
+  return [Paint()..shader = shader];
+}
+```
+
+❌ **Wrong paint order in multi-layer**
+```dart
+// Wrong: Border on top (won't create border effect)
+return [
+  paintWithDefault(stroke),              // Main stroke first
+  paintWithOverride(stroke,               // Border on top
+    strokeWidth: stroke.width + 4,
+    strokeColor: Colors.black,
+  ),
+];
+```
+
+✅ **Correct paint order (bottom to top)**
+```dart
+// Correct: Border first, then main stroke
+return [
+  paintWithOverride(stroke,               // Border on bottom
+    strokeWidth: stroke.width + 4,
+    strokeColor: Colors.black,
+  ),
+  paintWithDefault(stroke),              // Main stroke on top
+];
+```
+
+**Performance Considerations:**
+- Fragment shaders: GPU-accelerated but more expensive than simple paints
+- Multiple blur layers: Can be costly on low-end devices
+- Gradient complexity: More color stops = slightly more computation
+
+**Technique Selection:**
+
+| Effect | Technique | Best For |
+|--------|-----------|----------|
+| Solid borders | Multi-layer | Simple, fast, works everywhere |
+| Glows/shadows | Multi-layer + blur | Dramatic effects, moderate performance |
+| Color gradients | Gradients | Beautiful colors, good performance |
+| Animated effects | Fragment shader | Complex dynamic effects, GPU power |
+
 ## Complete Example Template
 
 ```dart
