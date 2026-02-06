@@ -134,6 +134,7 @@ Draw(
 | `backgroundColor` | `Color` |  | Canvas background color |
 | `erasingBehavior` | `ErasingBehavior` |  | Erasing mode (`none`, `pixel`, `stroke`) |
 | `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
+| `strokePainter` | `List<Paint> Function(Stroke)` |  | Custom stroke painting function |
 | `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
 | `shouldAbsorb` | `bool Function(PointerDownEvent)` |  | Control whether to absorb pointer events |
 
@@ -167,6 +168,79 @@ Smoothing algorithm is also customizable. You can choose pre-defined functions b
 SmoothingMode.catmullRom.converter  // Smooth curves (default)
 SmoothingMode.none.converter        // No smoothing (straight lines)
 ```
+
+## Custom Stroke Painting with `strokePainter`
+
+The `strokePainter` callback allows you to fully customize how strokes are rendered. You can create advanced visual effects like gradients, glows, shadows, and shader effects by returning multiple `Paint` objects.
+
+```dart
+Draw(
+  strokePainter: (Stroke stroke) {
+    final List<Paint> paint = _buildYourPaint(stroke);
+    return paint;
+  },
+)
+```
+
+**Parameters:**
+- `stroke` - The stroke to be painted
+
+**Return:**
+- A list of `Paint` objects to be applied to the stroke (in order)
+
+### Example: Gradient Effect
+
+```dart
+LayoutBuilder(
+  builder: (context, constraints) {
+    final canvasSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+    return Draw(
+      strokes: _strokes,
+      onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+      strokePainter: (stroke) {
+        final gradient = ui.Gradient.linear(
+          Offset.zero,
+          Offset(canvasSize.width, canvasSize.height),
+          [Colors.blue, Colors.purple, Colors.pink],
+        );
+
+        return [
+          Paint()
+            ..shader = gradient
+            ..strokeWidth = stroke.width
+            ..strokeCap = StrokeCap.round
+            ..style = PaintingStyle.stroke,
+        ];
+      },
+    );
+  },
+)
+```
+
+### Example: Multi-Layer Effect (Glow)
+
+```dart
+strokePainter: (stroke) {
+  return [
+    // Outer glow
+    paintWithOverride(stroke, strokeWidth: stroke.width + 8, strokeColor: Colors.cyan)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    // Inner glow
+    paintWithOverride(stroke, strokeWidth: stroke.width + 4, strokeColor: Colors.blue)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
+    // Core stroke
+    paintWithDefault(stroke),
+  ];
+}
+```
+
+### Helper Functions
+
+The package provides utility functions for creating `Paint` objects:
+
+- `paintWithDefault` - Creates a paint with default properties
+- `paintWithOverride` - Creates a paint with overridden properties
 
 ## Using with InteractiveViewer
 

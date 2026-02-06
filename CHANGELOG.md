@@ -1,3 +1,7 @@
+## [0.8.0] - 2026.02.06
+
+* Add `strokePainter` callback for custom stroke rendering with advanced visual effects (gradients, glows, shaders, etc.)
+
 ## [0.7.0] - 2026.01.29
 
 * Add `shouldAbsorb` callback to control pointer event absorption for pan/zoom gesture on ancestor widgets, typically `InteractiveViewer`. 
