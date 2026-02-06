@@ -5,3 +5,4 @@ export 'src/resampling.dart';
 export 'src/smoothing.dart';
 export 'src/stroke_handler.dart';
 export 'src/stroke.dart';
+export 'src/stroke_painter.dart';

@@ -1,6 +1,7 @@
 import 'package:draw_your_image/src/intersection_detection.dart';
 import 'package:draw_your_image/src/smoothing.dart';
 import 'package:draw_your_image/src/stroke.dart';
+import 'package:draw_your_image/src/stroke_painter.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
@@ -49,6 +50,13 @@ class Draw extends StatefulWidget {
   /// Defaults to Catmull-Rom spline interpolation.
   final SmoothingFunc? smoothingFunc;
 
+  /// Custom painter function for strokes.
+  /// If provided, this function will be used to paint each stroke
+  /// instead of the default painting logic.
+  /// The returns a list of [Paint] objects for the given [Stroke],
+  /// which enables more complex painting effects.
+  final StrokePainter? strokePainter;
+
   /// Function to detect intersecting strokes.
   /// Defaults to segment distance based detection.
   /// This is used when [isErasing] is true to detect which strokes
@@ -62,7 +70,6 @@ class Draw extends StatefulWidget {
   /// the pointer event will be absorbed by [Draw], preventing
   /// it from being passed to parent widgets like [InteractiveViewer].
   final bool Function(PointerDownEvent event)? shouldAbsorb;
-
   const Draw({
     super.key,
     required this.strokes,
@@ -75,6 +82,7 @@ class Draw extends StatefulWidget {
     this.strokeWidth = 4,
     this.erasingBehavior = ErasingBehavior.none,
     this.smoothingFunc,
+    this.strokePainter,
     this.intersectionDetector,
     this.shouldAbsorb,
   });
@@ -149,6 +157,7 @@ class _DrawState extends State<Draw> {
     final detector =
         widget.intersectionDetector ??
         IntersectionMode.segmentDistance.detector;
+    final strokePainter = widget.strokePainter ?? defaultStrokePainter;
 
     /// strokes to paint (including currently drawing stroke)
     final strokesToPaint = [...widget.strokes, ?_currentStroke];
@@ -205,6 +214,7 @@ class _DrawState extends State<Draw> {
               strokesToPaint.where((stroke) => stroke.shouldPaint).toList(),
               widget.backgroundColor,
               converter,
+              strokePainter,
             ),
           ),
         ),
@@ -231,8 +241,14 @@ class _FreehandPainter extends CustomPainter {
   final List<Stroke> strokes;
   final Color backgroundColor;
   final Path Function(Stroke) pathConverter;
+  final StrokePainter strokePainter;
 
-  _FreehandPainter(this.strokes, this.backgroundColor, this.pathConverter);
+  _FreehandPainter(
+    this.strokes,
+    this.backgroundColor,
+    this.pathConverter,
+    this.strokePainter,
+  );
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -248,17 +264,10 @@ class _FreehandPainter extends CustomPainter {
       // Convert stroke points to Path
       final path = pathConverter(stroke);
 
-      final paint = Paint()
-        ..strokeWidth = stroke.width
-        ..color = stroke.erasingBehavior == ErasingBehavior.pixel
-            ? Colors.transparent
-            : stroke.color
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke
-        ..blendMode = stroke.erasingBehavior == ErasingBehavior.pixel
-            ? BlendMode.clear
-            : BlendMode.srcOver;
-      canvas.drawPath(path, paint);
+      final painter = strokePainter(stroke);
+      for (final paint in painter) {
+        canvas.drawPath(path, paint);
+      }
     }
     canvas.restore();
   }
@@ -267,6 +276,7 @@ class _FreehandPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
     return strokes != (oldDelegate as _FreehandPainter).strokes ||
         pathConverter != oldDelegate.pathConverter ||
+        strokePainter != oldDelegate.strokePainter ||
         backgroundColor != oldDelegate.backgroundColor;
   }
 }
