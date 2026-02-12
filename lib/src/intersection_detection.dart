@@ -56,12 +56,12 @@ List<Stroke> detectIntersectionBySegmentDistance(
 
     // Check each stroke segment against each test stroke segment
     for (int i = 0; i < stroke.points.length - 1; i++) {
-      final p1 = stroke.points[i];
-      final p2 = stroke.points[i + 1];
+      final p1 = stroke.points[i].position;
+      final p2 = stroke.points[i + 1].position;
 
       for (int j = 0; j < testStroke.points.length - 1; j++) {
-        final q1 = testStroke.points[j];
-        final q2 = testStroke.points[j + 1];
+        final q1 = testStroke.points[j].position;
+        final q2 = testStroke.points[j + 1].position;
 
         final distance = _distanceSegmentToSegment(p1, p2, q1, q2);
         if (distance <= threshold) {

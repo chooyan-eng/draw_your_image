@@ -45,6 +45,15 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  shaders:
+    - shaders/tint.frag
+    - shaders/rainbow_wave.frag
+    - shaders/neon_glow.frag
+    - shaders/electric_spark.frag
+    - shaders/lava_flow.frag
+    - shaders/hologram.frag
+    - shaders/galaxy_dust.frag
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

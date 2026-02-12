@@ -28,7 +28,7 @@ void main() {
 
       expect(capturedStroke, isNotNull);
       expect(capturedStroke!.points.length, 1);
-      expect(capturedStroke!.points.first, const Offset(100, 100));
+      expect(capturedStroke!.points.first.position, const Offset(100, 100));
     });
 
     testWidgets('should create a stroke with multiple points when drawing', (
@@ -56,9 +56,9 @@ void main() {
 
       expect(capturedStroke, isNotNull);
       expect(capturedStroke!.points.length, 3);
-      expect(capturedStroke!.points[0], const Offset(100, 100));
-      expect(capturedStroke!.points[1], const Offset(150, 150));
-      expect(capturedStroke!.points[2], const Offset(200, 200));
+      expect(capturedStroke!.points[0].position, const Offset(100, 100));
+      expect(capturedStroke!.points[1].position, const Offset(150, 150));
+      expect(capturedStroke!.points[2].position, const Offset(200, 200));
     });
 
     testWidgets('should use default stroke properties', (tester) async {
@@ -448,8 +448,8 @@ void main() {
 
       expect(capturedStroke, isNotNull);
       expect(capturedStroke!.points.length, 2);
-      expect(capturedStroke!.points[0], const Offset(200, 200));
-      expect(capturedStroke!.points[1], const Offset(250, 250));
+      expect(capturedStroke!.points[0].position, const Offset(200, 200));
+      expect(capturedStroke!.points[1].position, const Offset(250, 250));
     });
 
     testWidgets('should change color dynamically in onStrokeUpdated', (
@@ -519,7 +519,7 @@ void main() {
 
       // Only first gesture should create a stroke
       expect(capturedStrokes.length, 1);
-      expect(capturedStrokes[0].points.first, const Offset(100, 100));
+      expect(capturedStrokes[0].points.first.position, const Offset(100, 100));
     });
 
     testWidgets('should accept new touch after previous is completed', (
@@ -550,8 +550,8 @@ void main() {
 
       // Both gestures should create strokes
       expect(capturedStrokes.length, 2);
-      expect(capturedStrokes[0].points.first, const Offset(100, 100));
-      expect(capturedStrokes[1].points.first, const Offset(200, 200));
+      expect(capturedStrokes[0].points.first.position, const Offset(100, 100));
+      expect(capturedStrokes[1].points.first.position, const Offset(200, 200));
     });
 
     testWidgets('should support palm rejection with onStrokeStarted', (
@@ -614,7 +614,24 @@ void main() {
     ) async {
       final strokes = <Stroke>[
         Stroke(
-          points: [const Offset(100, 150), const Offset(200, 150)],
+          points: [
+            const StrokePoint(
+              position: Offset(100, 150),
+              pressure: 1.0,
+              pressureMin: 1.0,
+              pressureMax: 1.0,
+              tilt: 0.0,
+              orientation: 0.0,
+            ),
+            const StrokePoint(
+              position: Offset(200, 150),
+              pressure: 1.0,
+              pressureMin: 1.0,
+              pressureMax: 1.0,
+              tilt: 0.0,
+              orientation: 0.0,
+            ),
+          ],
           deviceKind: PointerDeviceKind.touch,
           color: Colors.black,
           width: 5.0,
@@ -771,7 +788,7 @@ void main() {
       await tester.pump();
 
       expect(capturedStroke, isNotNull);
-      expect(capturedStroke!.points.first, const Offset(100, 100));
+      expect(capturedStroke!.points.first.position, const Offset(100, 100));
     });
   });
 
