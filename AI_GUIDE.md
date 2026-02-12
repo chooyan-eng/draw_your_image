@@ -36,12 +36,53 @@ A `Stroke` represents a drawing stroke with the following properties:
 
 ```dart
 class Stroke {
-  PointerDeviceKind deviceKind;     // stylus, touch, mouse, etc.
-  List<Offset> points;              // Points that compose the stroke
-  Color color;                      // Stroke color
-  double width;                     // Stroke width in logical pixels
-  ErasingBehavior erasingBehavior;  // Erasing behavior (none/pixel/stroke)
+  PointerDeviceKind deviceKind;         // stylus, touch, mouse, etc.
+  List<StrokePoint> points;             // Points that compose the stroke
+  Color color;                          // Stroke color
+  double width;                         // Stroke width in logical pixels
+  ErasingBehavior erasingBehavior;      // Erasing behavior (none/pixel/stroke)
 }
+```
+
+### StrokePoint
+
+A `StrokePoint` represents a single point in a stroke with rich input data from the pointer device:
+
+```dart
+class StrokePoint {
+  final Offset position;       // Position of the point
+  final double pressure;       // Pressure at this point (0.0 to 1.0+)
+  final double pressureMin;    // Minimum pressure value for this pointer
+  final double pressureMax;    // Maximum pressure value for this pointer
+  final double tilt;           // Tilt angle in radians (0 to π/2)
+  final double orientation;    // Orientation angle in radians (-π to π)
+  
+  // Normalized pressure getter
+  double get normalizedPressure; // Returns (pressure - pressureMin) / (pressureMax - pressureMin)
+}
+```
+
+**Key properties:**
+
+- **position**: The (x, y) coordinate of the point
+- **pressure**: Raw pressure value from the device. For devices without pressure support (mice), typically 0.5 or 1.0
+- **pressureMin/pressureMax**: Device-specific pressure range. For devices without pressure support, both are 1.0
+- **tilt**: For stylus input, the angle of the stylus relative to the surface (0 = perpendicular, π/2 = flat)
+- **orientation**: For stylus input, the direction the stylus is pointing in the plane of the surface
+- **normalizedPressure**: Convenience getter that normalizes pressure to 0.0-1.0 range. Returns 0.5 if pressureMin equals pressureMax (no variation possible)
+
+**Usage example:**
+
+```dart
+// Access point data
+final point = stroke.points.first;
+print('Position: ${point.position}');
+print('Raw pressure: ${point.pressure}');
+print('Normalized pressure: ${point.normalizedPressure}');
+print('Tilt angle: ${point.tilt}');
+
+// Use normalized pressure for consistent width
+final width = baseWidth * point.normalizedPressure;
 ```
 
 ### ErasingBehavior
@@ -900,6 +941,66 @@ Available smoothing modes:
 SmoothingMode.none.converter           // No smoothing
 SmoothingMode.catmullRom.converter     // Catmull-Rom spline (recommended)
 ```
+
+### Pressure-Sensitive Drawing
+
+For variable-width strokes based on stylus pressure, use `generatePressureSensitivePath`:
+
+```dart
+import 'package:draw_your_image/draw_your_image.dart';
+
+Draw(
+  strokes: _strokes,
+  strokeWidth: 8.0,
+  smoothingFunc: generatePressureSensitivePath,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes.add(stroke));
+  },
+)
+```
+
+**How it works:**
+
+- Creates a filled path where width varies according to `normalizedPressure` at each point
+- Uses Catmull-Rom spline interpolation for smooth curves
+- Automatically interpolates pressure, tilt, and orientation between points
+- Width calculation: `width = baseWidth * point.normalizedPressure`
+
+**Advanced customization:**
+
+You can also pass custom parameters:
+
+```dart
+smoothingFunc: (stroke) => generatePressureSensitivePath(
+  stroke,
+  tension: 0.8,   // Controls curve tightness (default: 0.8)
+  segments: 20,   // Interpolation segments between points (default: 20)
+)
+```
+
+**Combining with tilt for calligraphy effects:**
+
+For advanced effects using tilt and orientation data, create custom path converters:
+
+```dart
+Path calligraphyPath(Stroke stroke) {
+  final points = stroke.points;
+  // Build path using point.tilt and point.orientation
+  // to create brush-like effects
+  for (final point in points) {
+    final tiltFactor = 1.0 + (point.tilt / (math.pi / 2)) * 1.5;
+    final width = baseWidth * tiltFactor * point.normalizedPressure;
+    // Apply orientation to rotate brush angle...
+  }
+}
+
+Draw(
+  smoothingFunc: calligraphyPath,
+  // ...
+)
+```
+
+See [example/lib/pages/tilt_demo_page.dart](./example/lib/pages/tilt_demo_page.dart) for a complete tilt-based calligraphy implementation.
 
 ## Tips for AI Code Generation
 
