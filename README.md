@@ -143,12 +143,37 @@ Draw(
 ```dart
 class Stroke {
   PointerDeviceKind deviceKind;     // Input device type
-  List<Offset> points;              // Stroke points
+  List<StrokePoint> points;         // Stroke points with pressure/tilt data
   Color color;                      // Stroke color
   double width;                     // Stroke width
   ErasingBehavior erasingBehavior;  // Erasing mode
 }
 ```
+
+### StrokePoint
+
+Each point in a stroke contains rich input data:
+
+```dart
+class StrokePoint {
+  final Offset position;       // Position of the point
+  final double pressure;       // Raw pressure (0.0 to 1.0+)
+  final double pressureMin;    // Minimum pressure for this device
+  final double pressureMax;    // Maximum pressure for this device
+  final double tilt;           // Stylus tilt angle (0 to π/2 radians)
+  final double orientation;    // Stylus orientation (-π to π radians)
+  
+  // Normalized pressure getter (0.0 to 1.0)
+  double get normalizedPressure;
+}
+```
+
+Note that all the parameters are originated in Flutter's `PointerEvent`. See documentation of `PointerEvent` for detailed information.
+
+**Key features:**
+- `tilt` and `orientation` enable calligraphy-style effects
+- `normalizedPressure` automatically adjusts for device-specific pressure ranges
+- Works seamlessly with all input devices (stylus, touch, mouse)
 
 ### ErasingBehavior
 
@@ -168,6 +193,44 @@ Smoothing algorithm is also customizable. You can choose pre-defined functions b
 SmoothingMode.catmullRom.converter  // Smooth curves (default)
 SmoothingMode.none.converter        // No smoothing (straight lines)
 ```
+
+## Pressure-Sensitive Drawing
+
+Create variable-width strokes that respond to stylus pressure using the built-in `generatePressureSensitivePath` function:
+
+```dart
+Draw(
+  strokes: _strokes,
+  strokeWidth: 8.0,
+  smoothingFunc: generatePressureSensitivePath,
+  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
+)
+```
+
+### Tilt-Based Effects
+
+For advanced calligraphy effects using stylus tilt and orientation:
+
+```dart
+Path calligraphyPath(Stroke stroke) {
+  for (final point in stroke.points) {
+    // More tilt (flat stylus) = wider stroke
+    final tiltFactor = 1.0 + (point.tilt / (math.pi / 2)) * 1.5;
+    final width = baseWidth * tiltFactor * point.normalizedPressure;
+    
+    // Use orientation to rotate brush angle
+    final angle = point.orientation;
+    // ... create path with rotated brush shape
+  }
+}
+
+Draw(
+  smoothingFunc: calligraphyPath,
+  // ...
+)
+```
+
+See [example/lib/pages/tilt_demo_page.dart](example/lib/pages/tilt_demo_page.dart) for a complete implementation.
 
 ## Custom Stroke Painting with `strokePainter`
 

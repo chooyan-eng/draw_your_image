@@ -1,3 +1,10 @@
+## [0.9.0] - 2026.02.12
+
+* **BREAKING CHANGE**: Changed `Stroke.points` from `List<Offset>` to `List<StrokePoint>`
+  - Each point now contains rich input data: position, pressure, pressureMin, pressureMax, tilt, orientation
+  - Enables advanced features like pressure-sensitive drawing and tilt-based calligraphy effects
+* Added `generatePressureSensitivePath` function for variable-width strokes based on pressure
+
 ## [0.8.0] - 2026.02.06
 
 * Add `strokePainter` callback for custom stroke rendering with advanced visual effects (gradients, glows, shaders, etc.)

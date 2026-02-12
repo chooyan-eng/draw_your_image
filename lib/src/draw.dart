@@ -106,7 +106,16 @@ class _DrawState extends State<Draw> {
   void _start(PointerDownEvent event) {
     final newStroke = Stroke(
       deviceKind: event.kind,
-      points: [event.localPosition],
+      points: [
+        StrokePoint(
+          position: event.localPosition,
+          pressure: event.pressure,
+          pressureMin: event.pressureMin,
+          pressureMax: event.pressureMax,
+          tilt: event.tilt,
+          orientation: event.orientation,
+        ),
+      ],
       color: widget.strokeColor,
       width: widget.strokeWidth,
       erasingBehavior: widget.erasingBehavior,
@@ -127,10 +136,19 @@ class _DrawState extends State<Draw> {
   }
 
   /// add point when drawing is ongoing
-  void _add(double x, double y) {
+  void _add(PointerMoveEvent event) {
     if (_currentStroke != null) {
       setState(() {
-        _currentStroke!.points.add(Offset(x, y));
+        _currentStroke!.points.add(
+          StrokePoint(
+            position: event.localPosition,
+            pressure: event.pressure,
+            pressureMin: event.pressureMin,
+            pressureMax: event.pressureMax,
+            tilt: event.tilt,
+            orientation: event.orientation,
+          ),
+        );
 
         // Call onStrokeUpdated only if it is set
         if (widget.onStrokeUpdated != null) {
@@ -170,7 +188,7 @@ class _DrawState extends State<Draw> {
             return;
           }
 
-          _add(event.localPosition.dx, event.localPosition.dy);
+          _add(event);
 
           if (_currentStroke?.erasingBehavior == ErasingBehavior.stroke) {
             final removedStrokes = detector(

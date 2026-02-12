@@ -3,11 +3,12 @@ import 'dart:math' as math;
 
 import 'stroke.dart';
 
-/// Extension methods for resampling a list of [Offset] points.
-extension Resampling on List<Offset> {
+/// Extension methods for resampling a list of [StrokePoint] points.
+extension Resampling on List<StrokePoint> {
   /// Resample the given list of points at regular intervals specified by [spacing].
   /// This function returns a new list of points that are evenly spaced along the original path.
-  List<Offset> resampled({required double spacing}) {
+  /// Pressure values are linearly interpolated between points.
+  List<StrokePoint> resampled({required double spacing}) {
     if (length < 2) {
       return List.from(this);
     }
@@ -18,19 +19,41 @@ extension Resampling on List<Offset> {
     for (int i = 1; i < length; i++) {
       final from = this[i - 1];
       final to = this[i];
-      final distance = (to - from).distance;
+      final distance = (to.position - from.position).distance;
       accumulatedDistance += distance;
 
       while (accumulatedDistance >= spacing) {
         final ratio = (accumulatedDistance - spacing) / distance;
-        final interpolated = Offset.lerp(to, from, ratio)!;
-        resampled.add(interpolated);
+        final interpolatedPosition = Offset.lerp(
+          to.position,
+          from.position,
+          ratio,
+        )!;
+        final interpolatedPressure =
+            to.pressure + (from.pressure - to.pressure) * ratio;
+        final interpolatedPressureMin =
+            to.pressureMin + (from.pressureMin - to.pressureMin) * ratio;
+        final interpolatedPressureMax =
+            to.pressureMax + (from.pressureMax - to.pressureMax) * ratio;
+        final interpolatedTilt = to.tilt + (from.tilt - to.tilt) * ratio;
+        final interpolatedOrientation =
+            to.orientation + (from.orientation - to.orientation) * ratio;
+        resampled.add(
+          StrokePoint(
+            position: interpolatedPosition,
+            pressure: interpolatedPressure,
+            pressureMin: interpolatedPressureMin,
+            pressureMax: interpolatedPressureMax,
+            tilt: interpolatedTilt,
+            orientation: interpolatedOrientation,
+          ),
+        );
         accumulatedDistance -= spacing;
       }
     }
 
     // Add the last point
-    if ((resampled.last - last).distance > spacing / 2) {
+    if ((resampled.last.position - last.position).distance > spacing / 2) {
       resampled.add(last);
     }
 
@@ -41,6 +64,7 @@ extension Resampling on List<Offset> {
   ///
   /// This algorithm removes points that are less significant for maintaining
   /// the overall shape of the path, based on the [epsilon] tolerance value.
+  /// Pressure values are preserved for the points that remain.
   ///
   /// A larger [epsilon] value results in more aggressive reduction (fewer points),
   /// while a smaller value preserves more detail.
@@ -49,7 +73,7 @@ extension Resampling on List<Offset> {
   /// - 1.0: High quality (20-40% reduction)
   /// - 2.0: Balanced (40-60% reduction)
   /// - 5.0: High compression (60-80% reduction)
-  List<Offset> reduced({required double epsilon}) {
+  List<StrokePoint> reduced({required double epsilon}) {
     if (length < 3) {
       return List.from(this);
     }
@@ -70,21 +94,27 @@ double _perpendicularDistance(Offset point, Offset lineStart, Offset lineEnd) {
   }
 
   // Calculate perpendicular distance using the cross product formula
-  final numerator = ((point.dx - lineStart.dx) * dy - (point.dy - lineStart.dy) * dx).abs();
+  final numerator =
+      ((point.dx - lineStart.dx) * dy - (point.dy - lineStart.dy) * dx).abs();
   return numerator / lineLength;
 }
 
 /// Recursive implementation of the Ramer-Douglas-Peucker algorithm
-List<Offset> _rdpRecursive(List<Offset> points, double epsilon, int start, int end) {
+List<StrokePoint> _rdpRecursive(
+  List<StrokePoint> points,
+  double epsilon,
+  int start,
+  int end,
+) {
   // Find the point with the maximum distance from the line segment
   double maxDistance = 0;
   int maxIndex = start;
 
   for (int i = start + 1; i < end; i++) {
     final distance = _perpendicularDistance(
-      points[i],
-      points[start],
-      points[end],
+      points[i].position,
+      points[start].position,
+      points[end].position,
     );
 
     if (distance > maxDistance) {
