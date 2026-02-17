@@ -1,3 +1,6 @@
+## [0.10.0] - 2026.02.17
+* **BREAKING CHANGE** Changes API usage for "erasor" strokes. Refere `AI_GUIDE.md` for more details and migration.
+
 ## [0.9.0] - 2026.02.12
 
 * **BREAKING CHANGE**: Changed `Stroke.points` from `List<Offset>` to `List<StrokePoint>`

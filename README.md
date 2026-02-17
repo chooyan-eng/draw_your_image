@@ -20,7 +20,6 @@ This package focuses on providing a flexible drawing widget, leaving app-specifi
 🎨 **Flexible stroke handling** - Customize behavior per input device or any other criteria  
 🖌️ **Built-in smoothing** - Catmull-Rom spline interpolation included  
 ⚙️ **Fully customizable** - Colors, widths, smoothing algorithms  
-🧹 **Multiple erasing modes** - Pixel-level and stroke-level erasing  
 🔍 **Intersection detection** - Customizable stroke overlap detection
 
 ## Quick Start
@@ -75,29 +74,28 @@ If you want to draw lines with stylus while erase them with a finger, the functi
 ```dart
 extension on PointerDeviceKind {
   bool get isStylus =>
-      this ||
+      this == PointerDeviceKind.stylus ||
       this == PointerDeviceKind.invertedStylus;
-}
-
-Stroke? customHandler(Stroke newStroke, Stroke? currentStroke) {
-  // if we have an ongoing stroke, just continue.
-  if (currentStroke != null) {
-    return currentStroke;
-  }
-  
-  if (newStroke.deviceKind == PointerDeviceKind.stylus) {
-    // if stylus, draw black line
-    return newStroke.copyWith(color: Colors.black);
-  } else {
-    // if finger, erasor mode
-    return newStroke.copyWith(isErasing: true, width: 20.0);
-  }
 }
 
 Draw(
   strokes: _strokes,
-  onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
-  onStrokeStarted: customHandler,
+  onStrokeDrawn: (stroke) => setState(() => _strokes = [..._strokes, stroke]),
+  onStrokeStarted: (newStroke, currentStroke) {
+    if (currentStroke != null) return currentStroke;
+
+    if (newStroke.deviceKind.isStylus) {
+      // if stylus, draw black line
+      return newStroke.copyWith(color: Colors.black);
+    } else {
+      // if finger, pixel eraser — tag with data so strokePainter can identify it
+      return newStroke.copyWith(data: {#erasing: true}, width: 20.0);
+    }
+  },
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? [eraseWithDefault(stroke)]
+          : [paintWithDefault(stroke)],
 )
 ```
 
@@ -128,11 +126,10 @@ Draw(
 | `onStrokeDrawn` | `void Function(Stroke)` | ✓ | Called when a stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` |  | Control stroke behavior based on input |
 | `onStrokeUpdated` | `Stroke? Function(Stroke)` |  | Modify stroke in real-time as points are added |
-| `onStrokesRemoved` | `void Function(List<Stroke>)` |  | Called when strokes are removed by erasing |
+| `onStrokesSelected` | `void Function(List<Stroke>)` |  | Called when strokes are selected |
 | `strokeColor` | `Color` |  | Default stroke color |
 | `strokeWidth` | `double` |  | Default stroke width |
 | `backgroundColor` | `Color` |  | Canvas background color |
-| `erasingBehavior` | `ErasingBehavior` |  | Erasing mode (`none`, `pixel`, `stroke`) |
 | `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
 | `strokePainter` | `List<Paint> Function(Stroke)` |  | Custom stroke painting function |
 | `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
@@ -146,7 +143,6 @@ class Stroke {
   List<StrokePoint> points;         // Stroke points with pressure/tilt data
   Color color;                      // Stroke color
   double width;                     // Stroke width
-  ErasingBehavior erasingBehavior;  // Erasing mode
 }
 ```
 
@@ -174,16 +170,6 @@ Note that all the parameters are originated in Flutter's `PointerEvent`. See doc
 - `tilt` and `orientation` enable calligraphy-style effects
 - `normalizedPressure` automatically adjusts for device-specific pressure ranges
 - Works seamlessly with all input devices (stylus, touch, mouse)
-
-### ErasingBehavior
-
-```dart
-enum ErasingBehavior {
-  none,   // Normal drawing (default)
-  pixel,  // Pixel-level erasing (BlendMode.clear)
-  stroke, // Stroke-level erasing (removes entire strokes)
-}
-```
 
 ## Smoothing Modes
 
@@ -304,6 +290,7 @@ The package provides utility functions for creating `Paint` objects:
 
 - `paintWithDefault` - Creates a paint with default properties
 - `paintWithOverride` - Creates a paint with overridden properties
+- `eraseWithDefault` - Creates a paint with `BlendMode.clear` for pixel-level erasing
 
 ## Using with InteractiveViewer
 
