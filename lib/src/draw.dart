@@ -1,5 +1,5 @@
 import 'package:draw_your_image/src/intersection_detection.dart';
-import 'package:draw_your_image/src/smoothing.dart';
+import 'package:draw_your_image/src/path_builder.dart';
 import 'package:draw_your_image/src/stroke.dart';
 import 'package:draw_your_image/src/stroke_painter.dart';
 import 'package:flutter/gestures.dart';
@@ -29,7 +29,7 @@ class Draw extends StatefulWidget {
   final Stroke? Function(Stroke newStroke, Stroke? currentStroke)?
   onStrokeStarted;
 
-  /// Callback called when the current stroke is updated (point is added).
+  /// Callback called when the current stroke is updated (typically, when a point is added).
   /// The current stroke is passed as an argument.
   /// The return value will overwrite the currently drawing stroke.
   /// If null is returned, the stroke will be canceled at that point.
@@ -44,14 +44,15 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
-  /// Function to convert stroke points to Path.
+  /// Function to build [Path] from stroke points.
+  /// This function is typically for applying smoothing algorithms or pressure-sensitive effects.
   /// Defaults to Catmull-Rom spline interpolation.
-  final SmoothingFunc? smoothingFunc;
+  final PathBuilder? pathBuilder;
 
-  /// Custom painter function for strokes.
+  /// Custom painter function for [Path] built by [pathBuilder].
   /// If provided, this function will be used to paint each stroke
   /// instead of the default painting logic.
-  /// The returns a list of [Paint] objects for the given [Stroke],
+  /// You can return multiple [Paint] objects for the given [Stroke],
   /// which enables more complex painting effects.
   final StrokePainter? strokePainter;
 
@@ -62,11 +63,13 @@ class Draw extends StatefulWidget {
 
   /// Function to determine whether to absorb pan/zoom pointer events.
   /// This is useful when using [Draw] inside an [InteractiveViewer] and
-  /// you want to disable pan/zoom while drawing.
+  /// you want to disable pan/zoom while drawing and enable it otherwise.
+  ///
   /// When the function returns true for a pointer down event,
   /// the pointer event will be absorbed by [Draw], preventing
   /// it from being passed to parent widgets like [InteractiveViewer].
   final bool Function(PointerDownEvent event)? shouldAbsorb;
+
   const Draw({
     super.key,
     required this.strokes,
@@ -77,7 +80,7 @@ class Draw extends StatefulWidget {
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
-    this.smoothingFunc,
+    this.pathBuilder,
     this.strokePainter,
     this.intersectionDetector,
     this.shouldAbsorb,
@@ -162,7 +165,7 @@ class _DrawState extends State<Draw> {
   @override
   Widget build(BuildContext context) {
     final converter =
-        widget.smoothingFunc ?? SmoothingMode.catmullRom.converter;
+        widget.pathBuilder ?? PathBuilderMode.catmullRom.converter;
     final strokePainter = widget.strokePainter ?? defaultStrokePainter;
 
     /// strokes to paint (including currently drawing stroke)

@@ -139,7 +139,7 @@ class _PressureDemoPageState extends State<PressureDemoPage>
                       strokeWidth: 20.0,
                       backgroundColor: Colors.white,
                       // Use the appropriate path converter based on brush mode
-                      smoothingFunc: generatePressureSensitivePath,
+                      pathBuilder: PathBuilderMode.pressureSensitive.converter,
                       // Use fill style for pressure-sensitive strokes with optional shader
                       strokePainter: (stroke) => _getPaint(stroke, canvasSize),
                       onStrokeDrawn: (stroke) {

@@ -1,6 +1,5 @@
 import 'package:draw_your_image/draw_your_image.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'dart:ui';
 
 void main() {
   group('StrokePoint', () {

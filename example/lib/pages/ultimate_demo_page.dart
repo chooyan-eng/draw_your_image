@@ -176,10 +176,7 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
       InputMode.fingerEraser =>
         newStroke.deviceKind.isStylus
             ? newStroke.copyWith(color: _strokeColor, width: _strokeWidth)
-            : newStroke.copyWith(
-                data: {#erasing: true},
-                width: 30.0,
-              ),
+            : newStroke.copyWith(data: {#erasing: true}, width: 30.0),
     };
   }
 
@@ -526,9 +523,9 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
                     strokeColor: _strokeColor,
                     strokeWidth: _strokeWidth,
                     backgroundColor: _backgroundColor,
-                    smoothingFunc: _shapeMode == ShapeMode.freehand
-                        ? SmoothingMode.catmullRom.converter
-                        : SmoothingMode.none.converter,
+                    pathBuilder: _shapeMode == ShapeMode.freehand
+                        ? PathBuilderMode.catmullRom.converter
+                        : PathBuilderMode.none.converter,
                     shouldAbsorb: _enableZoomPan
                         ? (event) => event.kind.isStylus
                         : null,
@@ -552,14 +549,12 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
                       return _handleStrokeStarted(newStroke, currentStroke);
                     },
                     onStrokeUpdated: _handleStrokeUpdated,
-                    intersectionDetector:
-                        _inputMode == InputMode.fingerEraser
-                            ? detectIntersectionBySegmentDistance
-                            : null,
-                    strokePainter: (stroke) =>
-                        stroke.data?[#erasing] == true
-                            ? []
-                            : _getPainterForStyle(stroke, canvasSize),
+                    intersectionDetector: _inputMode == InputMode.fingerEraser
+                        ? IntersectionMode.segmentDistance.detector
+                        : null,
+                    strokePainter: (stroke) => stroke.data?[#erasing] == true
+                        ? []
+                        : _getPainterForStyle(stroke, canvasSize),
                   ),
                 );
 

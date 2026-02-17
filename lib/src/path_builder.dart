@@ -2,23 +2,26 @@ import 'dart:ui';
 
 import 'package:draw_your_image/src/stroke.dart';
 
-typedef SmoothingFunc = Path Function(Stroke);
+typedef PathBuilder = Path Function(Stroke);
 
-/// Smoothing modes for drawing strokes.
-/// These options are pre-defined smoothing algorithms that can be applied to stroke points.
-/// If you want to implement your own smoothing algorithm, you can provide a custom
+/// Path builder modes for drawing strokes.
+/// These options are pre-defined algorithms that can be applied to stroke points.
+/// If you want to implement your own algorithm, you can provide a custom
 /// path converter function to the [Draw] widget.
-enum SmoothingMode {
+enum PathBuilderMode {
   /// No smoothing, use linear interpolation
   none(generateLinearPath),
 
   /// Catmull-Rom spline interpolation
-  catmullRom(generateCatmullRomPath);
+  catmullRom(generateCatmullRomPath),
 
-  /// The smoothing function associated with this mode
-  final SmoothingFunc converter;
+  /// Pressure-sensitive path generation
+  pressureSensitive(generatePressureSensitivePath);
 
-  const SmoothingMode(this.converter);
+  /// The path builder function associated with this mode
+  final PathBuilder converter;
+
+  const PathBuilderMode(this.converter);
 }
 
 /// Generate a Path using linear interpolation

@@ -132,7 +132,7 @@ class _BasicDrawingPageState extends State<BasicDrawingPage> {
               onStrokeDrawn: _onStrokeDrawn,
               onStrokesSelected: _onStrokesRemoved,
               intersectionDetector: _erasingBehavior == ErasingBehavior.stroke
-                  ? detectIntersectionBySegmentDistance
+                  ? IntersectionMode.segmentDistance.detector
                   : null,
               strokePainter: (stroke) =>
                   switch (stroke.data?[ErasingBehavior]) {

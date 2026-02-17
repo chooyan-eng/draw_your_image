@@ -608,64 +608,63 @@ void main() {
   });
 
   group('Draw widget - Erasing behavior tests', () {
-    testWidgets('should remove intersecting strokes with intersectionDetector', (
-      tester,
-    ) async {
-      final strokes = <Stroke>[
-        Stroke(
-          points: [
-            const StrokePoint(
-              position: Offset(100, 150),
-              pressure: 1.0,
-              pressureMin: 1.0,
-              pressureMax: 1.0,
-              tilt: 0.0,
-              orientation: 0.0,
-            ),
-            const StrokePoint(
-              position: Offset(200, 150),
-              pressure: 1.0,
-              pressureMin: 1.0,
-              pressureMax: 1.0,
-              tilt: 0.0,
-              orientation: 0.0,
-            ),
-          ],
-          deviceKind: PointerDeviceKind.touch,
-          color: Colors.black,
-          width: 5.0,
-        ),
-      ];
-      final removedStrokes = <Stroke>[];
+    testWidgets(
+      'should remove intersecting strokes with intersectionDetector',
+      (tester) async {
+        final strokes = <Stroke>[
+          Stroke(
+            points: [
+              const StrokePoint(
+                position: Offset(100, 150),
+                pressure: 1.0,
+                pressureMin: 1.0,
+                pressureMax: 1.0,
+                tilt: 0.0,
+                orientation: 0.0,
+              ),
+              const StrokePoint(
+                position: Offset(200, 150),
+                pressure: 1.0,
+                pressureMin: 1.0,
+                pressureMax: 1.0,
+                tilt: 0.0,
+                orientation: 0.0,
+              ),
+            ],
+            deviceKind: PointerDeviceKind.touch,
+            color: Colors.black,
+            width: 5.0,
+          ),
+        ];
+        final removedStrokes = <Stroke>[];
 
-      expect(strokes.length, 1);
+        expect(strokes.length, 1);
 
-      // Draw an erasing stroke that intersects
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Draw(
-              strokes: strokes,
-              intersectionDetector: detectIntersectionBySegmentDistance,
-              onStrokeDrawn: (stroke) => strokes.add(stroke),
-              onStrokesSelected: (removed) => removedStrokes.addAll(removed),
+        // Draw an erasing stroke that intersects
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Draw(
+                strokes: strokes,
+                intersectionDetector: IntersectionMode.segmentDistance.detector,
+                onStrokeDrawn: (stroke) => strokes.add(stroke),
+                onStrokesSelected: (removed) => removedStrokes.addAll(removed),
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final eraseGesture = await tester.startGesture(const Offset(150, 147));
-      await eraseGesture.moveTo(const Offset(150, 153));
-      await eraseGesture.up();
-      await tester.pump();
+        final eraseGesture = await tester.startGesture(const Offset(150, 147));
+        await eraseGesture.moveTo(const Offset(150, 153));
+        await eraseGesture.up();
+        await tester.pump();
 
-      // Should have detected intersection
-      expect(removedStrokes.isNotEmpty, true);
-    });
+        // Should have detected intersection
+        expect(removedStrokes.isNotEmpty, true);
+      },
+    );
 
-    testWidgets('should set data in onStrokeStarted', (
-      tester,
-    ) async {
+    testWidgets('should set data in onStrokeStarted', (tester) async {
       Stroke? capturedStroke;
 
       await tester.pumpWidget(
@@ -691,44 +690,43 @@ void main() {
       expect(capturedStroke!.data?[#erasing], true);
     });
 
-    testWidgets('should set different data based on device type in onStrokeStarted', (
-      tester,
-    ) async {
-      Stroke? capturedStroke;
+    testWidgets(
+      'should set different data based on device type in onStrokeStarted',
+      (tester) async {
+        Stroke? capturedStroke;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Draw(
-              strokes: const [],
-              onStrokeDrawn: (stroke) => capturedStroke = stroke,
-              onStrokeStarted: (newStroke, currentStroke) {
-                if (currentStroke != null) {
-                  return currentStroke;
-                }
-                // Set erasing data for touch input
-                if (newStroke.deviceKind == PointerDeviceKind.touch) {
-                  return newStroke.copyWith(
-                    data: {#erasing: true},
-                  );
-                }
-                return newStroke;
-              },
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: Draw(
+                strokes: const [],
+                onStrokeDrawn: (stroke) => capturedStroke = stroke,
+                onStrokeStarted: (newStroke, currentStroke) {
+                  if (currentStroke != null) {
+                    return currentStroke;
+                  }
+                  // Set erasing data for touch input
+                  if (newStroke.deviceKind == PointerDeviceKind.touch) {
+                    return newStroke.copyWith(data: {#erasing: true});
+                  }
+                  return newStroke;
+                },
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      final gesture = await tester.startGesture(
-        const Offset(100, 100),
-        kind: PointerDeviceKind.touch,
-      );
-      await gesture.up();
-      await tester.pump();
+        final gesture = await tester.startGesture(
+          const Offset(100, 100),
+          kind: PointerDeviceKind.touch,
+        );
+        await gesture.up();
+        await tester.pump();
 
-      expect(capturedStroke, isNotNull);
-      expect(capturedStroke!.data?[#erasing], true);
-    });
+        expect(capturedStroke, isNotNull);
+        expect(capturedStroke!.data?[#erasing], true);
+      },
+    );
   });
 
   group('Draw widget - PointerCancel tests', () {
