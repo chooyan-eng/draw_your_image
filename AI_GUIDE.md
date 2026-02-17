@@ -11,7 +11,7 @@ This guide helps AI assistants generate accurate code when using the `draw_your_
 - **User-Controlled Behavior**: You have full control over stroke behavior through callbacks
   - Distinguish between input devices (stylus, finger, mouse)
   - Apply custom smoothing algorithms
-  - Modify stroke properties (color, width, erasing mode) based on any criteria
+  - Modify stroke properties (color, width, custom data) based on any criteria
   
 - **Declarative API**: No imperative controllers required
   - Stroke data is managed in your widget state
@@ -40,9 +40,11 @@ class Stroke {
   List<StrokePoint> points;             // Points that compose the stroke
   Color color;                          // Stroke color
   double width;                         // Stroke width in logical pixels
-  ErasingBehavior erasingBehavior;      // Erasing behavior (none/pixel/stroke)
+  Map<Object, dynamic>? data;           // User-defined additional data
 }
 ```
+
+The `data` field allows you to attach arbitrary metadata to each stroke. This is useful for distinguishing stroke types (e.g., eraser vs. normal drawing) or storing any application-specific information. You can use any object as a key (symbols, enums, strings, etc.).
 
 ### StrokePoint
 
@@ -85,15 +87,16 @@ print('Tilt angle: ${point.tilt}');
 final width = baseWidth * point.normalizedPressure;
 ```
 
-### ErasingBehavior
+### Erasing and Stroke Selection
 
-```dart
-enum ErasingBehavior {
-  none,   // Normal drawing (default)
-  pixel,  // Pixel-level erasing - erases only overlapping pixels using BlendMode.clear
-  stroke, // Stroke-level erasing - removes entire strokes that intersect
-}
-```
+This package does **not** provide a built-in "eraser mode" enum or property. Instead, erasing is achieved by composing existing features:
+
+- **Pixel erasing** (erasing overlapping pixels): Use `strokePainter` to return `eraseWithDefault(stroke)` for eraser strokes. This applies `BlendMode.clear` to erase pixels where the stroke passes.
+- **Stroke-level erasing** (removing entire strokes): Use `intersectionDetector` to detect intersecting strokes, and `onStrokesSelected` to handle the removal.
+
+Use `Stroke.data` to tag each stroke with metadata (e.g., `{#erasing: true}`) so that `strokePainter` can distinguish eraser strokes from normal drawing strokes.
+
+See [Erasing and Stroke Selection](#erasing-and-stroke-selection-1) in Common Use Cases for full examples.
 
 ### Device Types
 
@@ -203,32 +206,36 @@ Draw(
 )
 ```
 
-### 3. Stylus Draws, Finger Erases
+### 3. Stylus Draws, Finger Erases (Pixel Erasing)
 
-Use stylus for drawing and finger for erasing.
+Use stylus for drawing and finger for pixel-level erasing. Tag eraser strokes with `data` and use `strokePainter` to apply `eraseWithDefault`.
 
 ```dart
 Draw(
   strokes: _strokes,
   onStrokeDrawn: (stroke) {
-    setState(() => _strokes.add(stroke));
+    setState(() => _strokes = [..._strokes, stroke]);
   },
   onStrokeStarted: (newStroke, currentStroke) {
     if (currentStroke != null) {
       return currentStroke;
     }
-    
-    if (newStroke.deviceKind.isStylus)) {
+
+    if (newStroke.deviceKind.isStylus) {
       // Stylus: normal drawing
       return newStroke;
     } else {
-      // Finger: eraser
+      // Finger: pixel eraser
       return newStroke.copyWith(
-        isErasing: true,
+        data: {#erasing: true},
         width: 20.0,
       );
     }
   },
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? [eraseWithDefault(stroke)]
+          : [paintWithDefault(stroke)],
 )
 ```
 
@@ -460,7 +467,7 @@ for (final stroke in strokes) {
 
 ### Utility Functions
 
-The package provides two utility functions to simplify `Paint` creation:
+The package provides utility functions to simplify `Paint` creation:
 
 **`paintWithDefault(Stroke stroke)`**
 
@@ -469,7 +476,6 @@ Creates a `Paint` with the stroke's default properties:
 - Uses `stroke.width` for stroke width
 - Sets `StrokeCap.round` for rounded ends
 - Sets `PaintingStyle.stroke` for outline drawing
-- Handles pixel erasing (`ErasingBehavior.pixel`) automatically with `BlendMode.clear`
 
 ```dart
 strokePainter: (stroke) => [paintWithDefault(stroke)]
@@ -494,7 +500,16 @@ strokePainter: (stroke) => [
 ]
 ```
 
-**Key advantage:** Both functions automatically handle erasing behavior, ensuring `BlendMode.clear` is used for pixel erasing.
+**`eraseWithDefault(Stroke stroke)`**
+
+Creates a `Paint` with `BlendMode.clear` for pixel-level erasing. Use this in `strokePainter` to make a stroke act as an eraser:
+
+```dart
+strokePainter: (stroke) =>
+    stroke.data?[#erasing] == true
+        ? [eraseWithDefault(stroke)]
+        : [paintWithDefault(stroke)],
+```
 
 ### Common Use Cases with strokePainter
 
@@ -803,21 +818,18 @@ LayoutBuilder(
 )
 ```
 
-❌ **Creating Paint without erasing handling**
+❌ **Manually creating eraser Paint**
 ```dart
-// Wrong: Doesn't handle ErasingBehavior.pixel
+// Wrong: Manually setting BlendMode.clear is fragile
 Paint()
+  ..blendMode = BlendMode.clear
   ..strokeWidth = stroke.width
-  ..color = stroke.color
 ```
 
-✅ **Use utility functions for proper handling**
+✅ **Use `eraseWithDefault` for eraser strokes**
 ```dart
-// Correct: Handles erasing automatically
-paintWithDefault(stroke)
-
-// Or with overrides:
-paintWithOverride(stroke, strokeColor: Colors.red)
+// Correct: Use utility function
+eraseWithDefault(stroke)
 ```
 
 ❌ **Reusing shader instances across strokes**
@@ -1010,7 +1022,8 @@ See [example/lib/pages/tilt_demo_page.dart](./example/lib/pages/tilt_demo_page.d
 |-----------|----------------|
 | "Only stylus" | Check `deviceKind == PointerDeviceKind.stylus` |
 | "Palm rejection" | Return a stroke which is `deviceKind == PointerDeviceKind.stylus` is `currentStroke` is `deviceKind != PointerDeviceKind.stylus`|
-| "Finger erases" | Set `isErasing: true` for non-stylus input |
+| "Finger erases (pixel)" | Set a tag to each `Stroke` (e.g. `data: {#erasing: true}`) + `strokePainter` with `eraseWithDefault` |
+| "Finger erases (stroke)" | Set `intersectionDetector` + `onStrokesSelected` (+ `strokePainter` returns `[]` if erasing stroke should be invisible) |
 | "Different colors" | Use `copyWith(color: ...)` based on device |
 | "Different widths" | Use `copyWith(width: ...)` based on device |
 
@@ -1058,24 +1071,24 @@ _strokes = [..._strokes, stroke];
 | `strokeColor` | `Color` | Default stroke color |
 | `strokeWidth` | `double` | Default stroke width |
 | `backgroundColor` | `Color` | Canvas background color |
-| `erasingBehavior` | `ErasingBehavior` | Erasing mode (none/pixel/stroke) |
 | `smoothingFunc` | `Path Function(Stroke)` | Smoothing function |
-| `intersectionDetector` | `IntersectionDetector` | Custom intersection detection function for stroke-level erasing |
+| `strokePainter` | `StrokePainter` | Custom painter function. Returns `List<Paint>` for each stroke |
+| `intersectionDetector` | `IntersectionDetector` | Intersection detection function. Enables `onStrokesSelected` |
 | `shouldAbsorb` | `bool Function(PointerDownEvent)` | Control whether to absorb pointer events from parent widgets |
 | `onStrokeDrawn` | `void Function(Stroke)` | Called when stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. Control whether to continue, modify, or prevent with return value |
 | `onStrokeUpdated` | `Stroke? Function(Stroke)` | Called when a point is added to current stroke. Enables real-time stroke manipulation |
-| `onStrokesRemoved` | `void Function(List<Stroke>)` | Called when strokes are removed by stroke-level erasing |
+| `onStrokesSelected` | `void Function(List<Stroke>)` | Called with strokes that intersect the drawn stroke. Requires `intersectionDetector` |
 
 ### Stroke Methods
 
 ```dart
 // Create a new stroke with modified properties
 stroke.copyWith({
-  List<Offset>? points,
+  List<StrokePoint>? points,
   Color? color,
   double? width,
-  ErasingBehavior? erasingBehavior,
+  Map<Object, dynamic>? data,
 })
 ```
 
@@ -1162,16 +1175,16 @@ class _MyWidgetState extends State<MyWidget> {
             _redoStack = [];
           });
         },
-        onStrokesRemoved: (removedStrokes) {
+        onStrokesSelected: (selectedStrokes) {
           setState(() {
             // Save current state before modifying
             _undoStack.add(List.from(_strokes));
-            
-            // Remove strokes
+
+            // Remove selected strokes
             _strokes = _strokes
-                .where((s) => !removedStrokes.contains(s))
+                .where((s) => !selectedStrokes.contains(s))
                 .toList();
-            
+
             // Clear redo stack on new action
             _redoStack = [];
           });
@@ -1312,6 +1325,194 @@ class _MyWidgetState extends State<MyWidget> {
 - Must coordinate with `onStrokeStarted` to ensure consistent behavior
 
 **Important**: When using `shouldAbsorb`, make sure `onStrokeStarted` behavior matches. If you absorb stylus events, you should also handle them in `onStrokeStarted`. If you don't absorb touch events, you should typically return `null` for touch in `onStrokeStarted`.
+
+## Erasing and Stroke Selection
+
+This section explains how erasing and stroke selection work in this package. There is no dedicated "eraser mode"—erasing is composed from the same building blocks used for drawing and stroke selection.
+
+### Design Philosophy
+
+The eraser functionality is intentionally **not** a special-cased feature. Instead, it is built from general-purpose mechanisms:
+
+1. **Stroke selection logic is swappable via `intersectionDetector`**: The `intersectionDetector` + `onStrokesSelected` pattern is not limited to "erasing." The same mechanism can power **lasso selection**, **stroke editing** (e.g., changing the color of selected strokes), or any other interaction that requires identifying strokes by geometric relationship. By making the detection logic a pluggable function, you can swap in different algorithms (segment distance, bounding box, lasso polygon, etc.) without changing any other code.
+
+2. **"Eraser strokes" are just a visual style**: An eraser stroke that clears pixels (`eraseWithDefault`) is fundamentally the same as a "bold stroke" or a "gradient stroke"—it's a `Paint` configuration returned by `strokePainter`. This means the eraser is not a separate mode that needs special handling; it sits alongside all other visual styles in a single `strokePainter` callback.
+
+3. **Consistency prevents feature conflicts**: By unifying erasing with stroke selection and visual styling, the package avoids situations where "eraser mode" and "stroke editing" need separate, potentially conflicting code paths. Adding a new feature (e.g., lasso selection + delete) requires no changes to the erasing code—they share the same `onStrokesSelected` callback.
+
+### Pixel Erasing
+
+Pixel erasing clears the pixels where the eraser stroke passes over existing strokes. Use `Stroke.data` to tag eraser strokes and `strokePainter` to apply `eraseWithDefault`.
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes = [..._strokes, stroke]);
+  },
+  onStrokeStarted: (newStroke, currentStroke) {
+    return currentStroke ??
+        newStroke.copyWith(data: {#erasing: true});
+  },
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? [eraseWithDefault(stroke)]
+          : [paintWithDefault(stroke)],
+)
+```
+
+### Stroke-Level Erasing (Selection + Removal)
+
+Stroke-level erasing removes entire strokes that intersect with the drawn stroke. This uses `intersectionDetector` and `onStrokesSelected`.
+
+```dart
+Draw(
+  strokes: _strokes,
+  onStrokeDrawn: (stroke) {
+    setState(() => _strokes = [..._strokes, stroke]);
+  },
+  onStrokeStarted: (newStroke, currentStroke) {
+    return currentStroke ??
+        newStroke.copyWith(data: {#erasing: true});
+  },
+  onStrokesSelected: (selectedStrokes) {
+    setState(() {
+      _strokes = _strokes
+          .where((s) => !selectedStrokes.contains(s))
+          .toList();
+    });
+  },
+  intersectionDetector: detectIntersectionBySegmentDistance,
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? []  // Don't render the eraser stroke itself
+          : [paintWithDefault(stroke)],
+)
+```
+
+### Combined Example: Pixel + Stroke Erasing with Mode Switch
+
+For an app that supports both pixel and stroke erasing modes, use an enum in `Stroke.data` to distinguish:
+
+```dart
+enum ErasingBehavior { none, pixel, stroke }
+
+// In onStrokeStarted:
+onStrokeStarted: (newStroke, currentStroke) {
+  return currentStroke ??
+      newStroke.copyWith(data: {ErasingBehavior: _currentBehavior});
+},
+
+// In strokePainter:
+strokePainter: (stroke) =>
+    switch (stroke.data?[ErasingBehavior]) {
+      ErasingBehavior.stroke => [],
+      ErasingBehavior.pixel => [eraseWithDefault(stroke)],
+      _ => [paintWithDefault(stroke)],
+    },
+
+// Conditionally enable intersection detection:
+intersectionDetector: _currentBehavior == ErasingBehavior.stroke
+    ? detectIntersectionBySegmentDistance
+    : null,
+```
+
+See [example/lib/main.dart](./example/lib/main.dart) for the full working implementation of this pattern.
+
+## Migration from ErasingBehavior / ErasingMode
+
+If you are migrating from a version that used `ErasingBehavior` enum, `erasingBehavior` property on `Draw`/`Stroke`, or `onStrokesRemoved` callback, follow this guide.
+
+### Summary of Removed APIs
+
+| Removed | Replacement |
+|---------|-------------|
+| `ErasingBehavior` enum | User-defined enum or symbol in `Stroke.data` |
+| `Draw(erasingBehavior: ...)` | `onStrokeStarted` to set `data` + `strokePainter` |
+| `Stroke.erasingBehavior` | `Stroke.data` (e.g., `data: {#erasing: true}`) |
+| `Stroke.copyWith(erasingBehavior: ...)` | `Stroke.copyWith(data: ...)` |
+| `onStrokesRemoved` | `onStrokesSelected` |
+
+### Migration Steps
+
+**1. Replace `Draw(erasingBehavior: ErasingBehavior.pixel)`**
+
+Before:
+```dart
+Draw(
+  erasingBehavior: ErasingBehavior.pixel,
+  onStrokeDrawn: (stroke) => ...,
+)
+```
+
+After:
+```dart
+Draw(
+  onStrokeStarted: (newStroke, currentStroke) {
+    return currentStroke ??
+        newStroke.copyWith(data: {#erasing: true});
+  },
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? [eraseWithDefault(stroke)]
+          : [paintWithDefault(stroke)],
+  onStrokeDrawn: (stroke) => ...,
+)
+```
+
+**2. Replace `Draw(erasingBehavior: ErasingBehavior.stroke)`**
+
+Before:
+```dart
+Draw(
+  erasingBehavior: ErasingBehavior.stroke,
+  onStrokesRemoved: (removed) => ...,
+)
+```
+
+After:
+```dart
+Draw(
+  intersectionDetector: detectIntersectionBySegmentDistance,
+  onStrokesSelected: (selected) => ...,
+  onStrokeStarted: (newStroke, currentStroke) {
+    return currentStroke ??
+        newStroke.copyWith(data: {#erasing: true});
+  },
+  strokePainter: (stroke) =>
+      stroke.data?[#erasing] == true
+          ? []
+          : [paintWithDefault(stroke)],
+)
+```
+
+**3. Replace `Stroke.copyWith(erasingBehavior: ...)`**
+
+Before:
+```dart
+newStroke.copyWith(erasingBehavior: ErasingBehavior.pixel)
+```
+
+After:
+```dart
+newStroke.copyWith(data: {#erasing: true})
+```
+
+**4. Replace `stroke.erasingBehavior` checks**
+
+Before:
+```dart
+if (stroke.erasingBehavior == ErasingBehavior.pixel) { ... }
+```
+
+After:
+```dart
+if (stroke.data?[#erasing] == true) { ... }
+```
+
+**5. Replace `onStrokesRemoved` with `onStrokesSelected`**
+
+The callback name changed to reflect that it is a general-purpose stroke selection mechanism, not limited to erasing. The signature and behavior are the same.
 
 ## Related Resources
 
