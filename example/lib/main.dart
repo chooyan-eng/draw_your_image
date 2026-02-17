@@ -39,6 +39,8 @@ class BasicDrawingPage extends StatefulWidget {
   State<BasicDrawingPage> createState() => _BasicDrawingPageState();
 }
 
+enum ErasingBehavior { none, pixel, stroke }
+
 class _BasicDrawingPageState extends State<BasicDrawingPage> {
   // List of strokes
   List<Stroke> _strokes = [];
@@ -49,8 +51,8 @@ class _BasicDrawingPageState extends State<BasicDrawingPage> {
   // Current drawing settings
   Color _currentColor = Colors.black;
   double _currentWidth = 4.0;
-  bool _isEraserMode = false;
-  ErasingBehavior _erasingBehavior = ErasingBehavior.pixel;
+  ErasingBehavior _erasingBehavior = ErasingBehavior.none;
+  bool get _isErasingMode => _erasingBehavior != ErasingBehavior.none;
 
   /// Process when stroke is completed
   void _onStrokeDrawn(Stroke stroke) {
@@ -121,11 +123,23 @@ class _BasicDrawingPageState extends State<BasicDrawingPage> {
               strokeColor: _currentColor,
               strokeWidth: _currentWidth,
               backgroundColor: DemoColors.canvasBackground,
-              erasingBehavior: _isEraserMode
-                  ? _erasingBehavior
-                  : ErasingBehavior.none,
+              onStrokeStarted: (newStroke, currentStroke) {
+                return currentStroke ??
+                    newStroke.copyWith(
+                      data: {ErasingBehavior: _erasingBehavior},
+                    );
+              },
               onStrokeDrawn: _onStrokeDrawn,
-              onStrokesRemoved: _onStrokesRemoved,
+              onStrokesSelected: _onStrokesRemoved,
+              intersectionDetector: _erasingBehavior == ErasingBehavior.stroke
+                  ? detectIntersectionBySegmentDistance
+                  : null,
+              strokePainter: (stroke) =>
+                  switch (stroke.data?[ErasingBehavior]) {
+                    ErasingBehavior.stroke => [],
+                    ErasingBehavior.pixel => [eraseWithDefault(stroke)],
+                    _ => [paintWithDefault(stroke)],
+                  },
             ),
           ),
           // Toolbar
@@ -174,14 +188,18 @@ class _BasicDrawingPageState extends State<BasicDrawingPage> {
                     const SizedBox(width: 8),
                     ToolButton(
                       icon: Icons.cleaning_services,
-                      isSelected: _isEraserMode,
+                      isSelected: _isErasingMode,
                       onTap: () {
-                        setState(() => _isEraserMode = !_isEraserMode);
+                        setState(
+                          () => _erasingBehavior = _isErasingMode
+                              ? ErasingBehavior.none
+                              : ErasingBehavior.pixel,
+                        );
                       },
                       tooltip: 'Eraser',
                     ),
                     const SizedBox(width: 16),
-                    if (_isEraserMode) ...[
+                    if (_isErasingMode) ...[
                       const Text('Erasing Mode: '),
                       const SizedBox(width: 8),
                       SegmentedButton<ErasingBehavior>(

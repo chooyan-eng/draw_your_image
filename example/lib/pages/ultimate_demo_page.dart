@@ -177,7 +177,7 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
         newStroke.deviceKind.isStylus
             ? newStroke.copyWith(color: _strokeColor, width: _strokeWidth)
             : newStroke.copyWith(
-                erasingBehavior: ErasingBehavior.stroke,
+                data: {#erasing: true},
                 width: 30.0,
               ),
     };
@@ -539,7 +539,7 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
                         _isDrawing = false;
                       });
                     },
-                    onStrokesRemoved: (removedStrokes) {
+                    onStrokesSelected: (removedStrokes) {
                       setState(() {
                         _undoRedo.saveState(_strokes);
                         _strokes = _strokes
@@ -552,8 +552,14 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
                       return _handleStrokeStarted(newStroke, currentStroke);
                     },
                     onStrokeUpdated: _handleStrokeUpdated,
+                    intersectionDetector:
+                        _inputMode == InputMode.fingerEraser
+                            ? detectIntersectionBySegmentDistance
+                            : null,
                     strokePainter: (stroke) =>
-                        _getPainterForStyle(stroke, canvasSize),
+                        stroke.data?[#erasing] == true
+                            ? []
+                            : _getPainterForStyle(stroke, canvasSize),
                   ),
                 );
 

@@ -41,10 +41,7 @@ class _StrokeEditingPageState extends State<StrokeEditingPage> {
   SelectionMethod _selectionMethod = SelectionMethod.tap;
   Set<int> _selectedIndices = {};
   final UndoRedoManager _undoRedoManager = UndoRedoManager();
-
-  // For lasso selection
-  List<Offset> _lassoPoints = [];
-  bool _isDrawingLasso = false;
+  bool _isDraggingStroke = false;
 
   // Editing settings
   Color _currentColor = Colors.black;
@@ -77,44 +74,32 @@ class _StrokeEditingPageState extends State<StrokeEditingPage> {
     }
   }
 
-  /// Start lasso selection
-  void _startLassoSelection(Offset position) {
-    setState(() {
-      _isDrawingLasso = true;
-      _lassoPoints = [position];
-    });
-  }
-
-  /// Update lasso selection
-  void _updateLassoSelection(Offset position) {
-    if (_isDrawingLasso) {
-      setState(() {
-        _lassoPoints.add(position);
-      });
-    }
-  }
-
-  /// Complete lasso selection
-  void _completeLassoSelection() {
-    if (_lassoPoints.length > 2) {
-      // Select strokes within lasso
-      final selectedIndices = <int>{};
-      for (int i = 0; i < _strokes.length; i++) {
-        final strokePositions = _strokes[i].points
-            .map((p) => p.position)
-            .toList();
-        if (isStrokeInPolygon(strokePositions, _lassoPoints)) {
-          selectedIndices.add(i);
-        }
+  /// Returns index of a selected stroke near [position], or null.
+  int? _getSelectedStrokeIndexNear(Offset position) {
+    for (final i in _selectedIndices) {
+      for (final p in _strokes[i].points) {
+        if ((p.position - position).distance < 20.0) return i;
       }
-      setState(() {
-        _selectedIndices = selectedIndices;
-      });
     }
-    setState(() {
-      _isDrawingLasso = false;
-      _lassoPoints = [];
-    });
+    return null;
+  }
+
+  /// Creates a copy of [stroke] with all points offset by [delta].
+  Stroke _moveStrokeBy(Stroke stroke, Offset delta) {
+    return stroke.copyWith(
+      points: stroke.points
+          .map(
+            (p) => StrokePoint(
+              position: p.position + delta,
+              pressure: p.pressure,
+              pressureMin: p.pressureMin,
+              pressureMax: p.pressureMax,
+              tilt: p.tilt,
+              orientation: p.orientation,
+            ),
+          )
+          .toList(),
+    );
   }
 
   /// Change color of selected strokes
@@ -163,16 +148,6 @@ class _StrokeEditingPageState extends State<StrokeEditingPage> {
     });
   }
 
-  /// Get list of strokes for display (selected strokes are highlighted)
-  List<Stroke> _getDisplayStrokes() {
-    return _strokes.asMap().entries.map((entry) {
-      if (_selectedIndices.contains(entry.key)) {
-        return entry.value.copyWith(color: DemoColors.selectionHighlight);
-      }
-      return entry.value;
-    }).toList();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -214,45 +189,95 @@ class _StrokeEditingPageState extends State<StrokeEditingPage> {
                   ? (details) => _selectStrokeAt(details.localPosition)
                   : null,
               onPanStart:
-                  _mode == EditMode.selecting &&
-                      _selectionMethod == SelectionMethod.lasso
-                  ? (details) => _startLassoSelection(details.localPosition)
-                  : null,
-              onPanUpdate:
-                  _mode == EditMode.selecting &&
-                      _selectionMethod == SelectionMethod.lasso
-                  ? (details) => _updateLassoSelection(details.localPosition)
-                  : null,
-              onPanEnd:
-                  _mode == EditMode.selecting &&
-                      _selectionMethod == SelectionMethod.lasso
-                  ? (_) => _completeLassoSelection()
-                  : null,
-              child: Stack(
-                children: [
-                  Draw(
-                    strokes: _getDisplayStrokes(),
-                    strokeColor: _currentColor,
-                    strokeWidth: _currentWidth,
-                    backgroundColor: DemoColors.canvasBackground,
-                    onStrokeDrawn: (stroke) {
-                      if (_mode == EditMode.drawing) {
+                  _mode == EditMode.selecting && _selectedIndices.isNotEmpty
+                  ? (details) {
+                      if (_getSelectedStrokeIndexNear(details.localPosition) !=
+                          null) {
                         _undoRedoManager.saveState(_strokes);
-                        setState(() => _strokes = [..._strokes, stroke]);
+                        setState(() => _isDraggingStroke = true);
                       }
-                    },
-                    onStrokeStarted: _mode == EditMode.selecting
-                        ? (_, __) =>
-                              null // Do not draw in selection mode
-                        : null,
-                  ),
-                  // Display lasso line
-                  if (_isDrawingLasso && _lassoPoints.length > 1)
-                    CustomPaint(
-                      painter: _LassoPainter(_lassoPoints),
-                      size: Size.infinite,
-                    ),
-                ],
+                    }
+                  : null,
+              onPanUpdate: _mode == EditMode.selecting && _isDraggingStroke
+                  ? (details) {
+                      setState(() {
+                        _strokes = _strokes.asMap().entries.map((entry) {
+                          if (_selectedIndices.contains(entry.key)) {
+                            return _moveStrokeBy(entry.value, details.delta);
+                          }
+                          return entry.value;
+                        }).toList();
+                      });
+                    }
+                  : null,
+              onPanEnd: _mode == EditMode.selecting && _isDraggingStroke
+                  ? (_) {
+                      setState(() => _isDraggingStroke = false);
+                    }
+                  : null,
+              child: Draw(
+                strokes: _strokes,
+                strokeColor: _currentColor,
+                strokeWidth: _currentWidth,
+                backgroundColor: DemoColors.canvasBackground,
+                onStrokeDrawn: (stroke) {
+                  if (_mode == EditMode.drawing) {
+                    _undoRedoManager.saveState(_strokes);
+                    setState(() => _strokes = [..._strokes, stroke]);
+                  }
+                },
+                onStrokeStarted: (newStroke, currentStroke) {
+                  if (currentStroke != null) return currentStroke;
+                  if (_mode == EditMode.selecting) {
+                    if (_selectedIndices.isNotEmpty) {
+                      return null;
+                    }
+                    if (_selectionMethod == SelectionMethod.lasso) {
+                      return newStroke.copyWith(
+                        color: DemoColors.lassoColor,
+                        width: 2.0,
+                      );
+                    }
+                    return null;
+                  }
+                  return newStroke;
+                },
+                intersectionDetector:
+                    _mode == EditMode.selecting &&
+                        _selectionMethod == SelectionMethod.lasso
+                    ? detectLassoIntersection
+                    : null,
+                onStrokesSelected:
+                    _mode == EditMode.selecting &&
+                        _selectionMethod == SelectionMethod.lasso
+                    ? (selectedStrokes) {
+                        setState(() {
+                          _selectedIndices = selectedStrokes
+                              .map((s) => _strokes.indexOf(s))
+                              .where((i) => i >= 0)
+                              .toSet();
+                        });
+                      }
+                    : null,
+                strokePainter: (stroke) {
+                  final idx = _strokes.indexWhere((s) => identical(s, stroke));
+                  final isSelected = idx >= 0 && _selectedIndices.contains(idx);
+                  if (isSelected) {
+                    return [
+                      paintWithOverride(
+                        stroke,
+                        strokeWidth: stroke.width + 10,
+                        strokeColor: DemoColors.selectionHighlight,
+                      ),
+                      paintWithOverride(
+                        stroke,
+                        strokeWidth: stroke.width,
+                        strokeColor: stroke.color,
+                      ),
+                    ];
+                  }
+                  return [paintWithDefault(stroke)];
+                },
               ),
             ),
           ),
@@ -334,36 +359,5 @@ class _StrokeEditingPageState extends State<StrokeEditingPage> {
         ],
       ),
     );
-  }
-}
-
-/// CustomPainter to draw lasso line
-class _LassoPainter extends CustomPainter {
-  final List<Offset> points;
-
-  _LassoPainter(this.points);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.length < 2) return;
-
-    final paint = Paint()
-      ..color = DemoColors.lassoColor
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-    path.moveTo(points.first.dx, points.first.dy);
-    for (int i = 1; i < points.length; i++) {
-      path.lineTo(points[i].dx, points[i].dy);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_LassoPainter oldDelegate) {
-    return oldDelegate.points.length != points.length;
   }
 }

@@ -75,7 +75,7 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
         } else {
           // Finger/Mouse: Pixel erasing
           return newStroke.copyWith(
-            erasingBehavior: ErasingBehavior.pixel,
+            data: {#erasing: true},
             width: 20.0,
           );
         }
@@ -169,6 +169,10 @@ class _DeviceControlPageState extends State<DeviceControlPage> {
                 setState(() => _strokes = [..._strokes, stroke]);
               },
               onStrokeStarted: _onStrokeStarted,
+              strokePainter: (stroke) =>
+                  stroke.data?[#erasing] == true
+                      ? [eraseWithDefault(stroke)]
+                      : [paintWithDefault(stroke)],
             ),
           ),
           // Mode selection

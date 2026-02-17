@@ -1,5 +1,20 @@
 import 'dart:ui';
 
+import 'package:draw_your_image/draw_your_image.dart';
+
+/// IntersectionDetector that selects strokes inside the lasso polygon.
+///
+/// Uses the [testStroke] points as polygon vertices and returns strokes from
+/// [strokes] that are inside the polygon (using [isStrokeInPolygon]).
+List<Stroke> detectLassoIntersection(List<Stroke> strokes, Stroke testStroke) {
+  if (testStroke.points.length < 3) return [];
+  final polygon = testStroke.points.map((p) => p.position).toList();
+  return strokes.where((stroke) {
+    final positions = stroke.points.map((p) => p.position).toList();
+    return isStrokeInPolygon(positions, polygon);
+  }).toList();
+}
+
 /// Function to determine if a point is inside a polygon
 ///
 /// Uses Ray Casting Algorithm.
