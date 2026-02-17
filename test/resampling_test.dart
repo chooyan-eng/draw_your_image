@@ -189,7 +189,7 @@ void main() {
         ],
         color: const Color(0xFFFF0000),
         width: 3.0,
-        erasingBehavior: ErasingBehavior.pixel,
+        data: {#erasing: true},
       );
 
       final reduced = reduceStrokePoints([original], epsilon: 2.0);
@@ -197,7 +197,7 @@ void main() {
       expect(reduced.length, 1);
       expect(reduced.first.color, original.color);
       expect(reduced.first.width, original.width);
-      expect(reduced.first.erasingBehavior, original.erasingBehavior);
+      expect(reduced.first.data, original.data);
       expect(reduced.first.deviceKind, original.deviceKind);
     });
 

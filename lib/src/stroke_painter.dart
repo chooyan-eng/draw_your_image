@@ -6,9 +6,7 @@ import 'package:flutter/material.dart';
 typedef StrokePainter = List<Paint> Function(Stroke stroke);
 
 /// The default implementation of [StrokePainter].
-List<Paint> defaultStrokePainter(Stroke stroke) => [
-  paintWithDefault(stroke),
-];
+List<Paint> defaultStrokePainter(Stroke stroke) => [paintWithDefault(stroke)];
 
 /// A utility function to create a [Paint] object with default stroke properties.
 Paint paintWithDefault(Stroke stroke) {
@@ -17,7 +15,7 @@ Paint paintWithDefault(Stroke stroke) {
     strokeWidth: stroke.width,
     strokeCap: StrokeCap.round,
     style: PaintingStyle.stroke,
-    isErasing: stroke.erasingBehavior == ErasingBehavior.pixel,
+    blendMode: BlendMode.srcOver,
   );
 }
 
@@ -34,7 +32,35 @@ Paint paintWithOverride(
     strokeWidth: strokeWidth ?? stroke.width,
     strokeCap: strokeCap ?? StrokeCap.round,
     style: style ?? PaintingStyle.stroke,
-    isErasing: stroke.erasingBehavior == ErasingBehavior.pixel,
+    blendMode: BlendMode.srcOver,
+  );
+}
+
+/// A utility function to create a [Paint] object for an erasing stroke with default stroke properties.
+Paint eraseWithDefault(Stroke stroke) {
+  return _paint(
+    strokeColor: Colors.transparent,
+    strokeWidth: stroke.width,
+    strokeCap: StrokeCap.round,
+    style: PaintingStyle.stroke,
+    blendMode: BlendMode.clear,
+  );
+}
+
+/// A utility function to create a [Paint] object for an erasing stroke with overridden stroke properties.
+Paint eraseWithOverride(
+  Stroke stroke, {
+  Color? strokeColor,
+  double? strokeWidth,
+  StrokeCap? strokeCap,
+  PaintingStyle? style,
+}) {
+  return _paint(
+    strokeColor: strokeColor ?? stroke.color,
+    strokeWidth: strokeWidth ?? stroke.width,
+    strokeCap: strokeCap ?? StrokeCap.round,
+    style: style ?? PaintingStyle.stroke,
+    blendMode: BlendMode.clear,
   );
 }
 
@@ -43,14 +69,14 @@ Paint _paint({
   required double strokeWidth,
   required StrokeCap strokeCap,
   required PaintingStyle style,
-  required bool isErasing,
+  required BlendMode blendMode,
 }) {
   final paint = Paint()
     ..strokeWidth = strokeWidth
-    ..color = isErasing ? Colors.transparent : strokeColor
+    ..color = strokeColor
     ..strokeCap = strokeCap
     ..style = style
-    ..blendMode = isErasing ? BlendMode.clear : BlendMode.srcOver;
+    ..blendMode = blendMode;
 
   return paint;
 }

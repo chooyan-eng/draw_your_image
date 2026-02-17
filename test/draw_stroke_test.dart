@@ -83,7 +83,6 @@ void main() {
 
       expect(capturedStroke!.color, Colors.red);
       expect(capturedStroke!.width, 10.0);
-      expect(capturedStroke!.erasingBehavior, ErasingBehavior.none);
     });
   });
 
@@ -609,7 +608,7 @@ void main() {
   });
 
   group('Draw widget - Erasing behavior tests', () {
-    testWidgets('should remove intersecting strokes with stroke erasing', (
+    testWidgets('should remove intersecting strokes with intersectionDetector', (
       tester,
     ) async {
       final strokes = <Stroke>[
@@ -647,9 +646,9 @@ void main() {
           home: Scaffold(
             body: Draw(
               strokes: strokes,
-              erasingBehavior: ErasingBehavior.stroke, // Erasing mode
+              intersectionDetector: detectIntersectionBySegmentDistance,
               onStrokeDrawn: (stroke) => strokes.add(stroke),
-              onStrokesRemoved: (removed) => removedStrokes.addAll(removed),
+              onStrokesSelected: (removed) => removedStrokes.addAll(removed),
             ),
           ),
         ),
@@ -664,7 +663,7 @@ void main() {
       expect(removedStrokes.isNotEmpty, true);
     });
 
-    testWidgets('should set erasingBehavior from widget property', (
+    testWidgets('should set data in onStrokeStarted', (
       tester,
     ) async {
       Stroke? capturedStroke;
@@ -674,8 +673,11 @@ void main() {
           home: Scaffold(
             body: Draw(
               strokes: const [],
-              erasingBehavior: ErasingBehavior.pixel,
               onStrokeDrawn: (stroke) => capturedStroke = stroke,
+              onStrokeStarted: (newStroke, currentStroke) {
+                return currentStroke ??
+                    newStroke.copyWith(data: {#erasing: true});
+              },
             ),
           ),
         ),
@@ -686,10 +688,10 @@ void main() {
       await tester.pump();
 
       expect(capturedStroke, isNotNull);
-      expect(capturedStroke!.erasingBehavior, ErasingBehavior.pixel);
+      expect(capturedStroke!.data?[#erasing], true);
     });
 
-    testWidgets('should change erasingBehavior in onStrokeStarted', (
+    testWidgets('should set different data based on device type in onStrokeStarted', (
       tester,
     ) async {
       Stroke? capturedStroke;
@@ -699,16 +701,15 @@ void main() {
           home: Scaffold(
             body: Draw(
               strokes: const [],
-              erasingBehavior: ErasingBehavior.none,
               onStrokeDrawn: (stroke) => capturedStroke = stroke,
               onStrokeStarted: (newStroke, currentStroke) {
                 if (currentStroke != null) {
                   return currentStroke;
                 }
-                // Change to erasing for touch input
+                // Set erasing data for touch input
                 if (newStroke.deviceKind == PointerDeviceKind.touch) {
                   return newStroke.copyWith(
-                    erasingBehavior: ErasingBehavior.stroke,
+                    data: {#erasing: true},
                   );
                 }
                 return newStroke;
@@ -726,7 +727,7 @@ void main() {
       await tester.pump();
 
       expect(capturedStroke, isNotNull);
-      expect(capturedStroke!.erasingBehavior, ErasingBehavior.stroke);
+      expect(capturedStroke!.data?[#erasing], true);
     });
   });
 
@@ -858,8 +859,11 @@ void main() {
               strokes: const [],
               strokeColor: Colors.purple,
               strokeWidth: 15.0,
-              erasingBehavior: ErasingBehavior.pixel,
               onStrokeDrawn: (stroke) => capturedStroke = stroke,
+              onStrokeStarted: (newStroke, currentStroke) {
+                return currentStroke ??
+                    newStroke.copyWith(data: {#erasing: true});
+              },
             ),
           ),
         ),
@@ -874,7 +878,7 @@ void main() {
       expect(capturedStroke, isNotNull);
       expect(capturedStroke!.color, Colors.purple);
       expect(capturedStroke!.width, 15.0);
-      expect(capturedStroke!.erasingBehavior, ErasingBehavior.pixel);
+      expect(capturedStroke!.data?[#erasing], true);
       expect(capturedStroke!.points.length, 3);
     });
   });

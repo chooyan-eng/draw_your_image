@@ -13,8 +13,9 @@ class Draw extends StatefulWidget {
   /// Callback called when one stroke is completed.
   final ValueChanged<Stroke> onStrokeDrawn;
 
-  /// Callback called when strokes are removed by erasing.
-  final ValueChanged<List<Stroke>>? onStrokesRemoved;
+  /// Callback called when strokes are selected.
+  /// This callback is called only when [intersectionDetector] is provided.
+  final ValueChanged<List<Stroke>>? onStrokesSelected;
 
   /// Callback called when a new stroke is started.
   /// If null, drawing always starts with a default configuration.
@@ -43,9 +44,6 @@ class Draw extends StatefulWidget {
   /// Width of strokes
   final double strokeWidth;
 
-  /// Erasing behavior for drawing
-  final ErasingBehavior erasingBehavior;
-
   /// Function to convert stroke points to Path.
   /// Defaults to Catmull-Rom spline interpolation.
   final SmoothingFunc? smoothingFunc;
@@ -59,8 +57,7 @@ class Draw extends StatefulWidget {
 
   /// Function to detect intersecting strokes.
   /// Defaults to segment distance based detection.
-  /// This is used when [isErasing] is true to detect which strokes
-  /// should be removed by the erasing stroke.
+  /// This is used when [onStrokesSelected] is provided.
   final IntersectionDetector? intersectionDetector;
 
   /// Function to determine whether to absorb pan/zoom pointer events.
@@ -74,13 +71,12 @@ class Draw extends StatefulWidget {
     super.key,
     required this.strokes,
     required this.onStrokeDrawn,
-    this.onStrokesRemoved,
+    this.onStrokesSelected,
     this.onStrokeStarted,
     this.onStrokeUpdated,
     this.backgroundColor = Colors.white,
     this.strokeColor = Colors.black,
     this.strokeWidth = 4,
-    this.erasingBehavior = ErasingBehavior.none,
     this.smoothingFunc,
     this.strokePainter,
     this.intersectionDetector,
@@ -99,9 +95,6 @@ class _DrawState extends State<Draw> {
   /// [Draw] only supports single touch drawing
   int? _activePointerId;
 
-  /// strokes removed by erasing within one removing stroke
-  List<Stroke> _removedStrokes = [];
-
   /// start drawing
   void _start(PointerDownEvent event) {
     final newStroke = Stroke(
@@ -118,7 +111,6 @@ class _DrawState extends State<Draw> {
       ],
       color: widget.strokeColor,
       width: widget.strokeWidth,
-      erasingBehavior: widget.erasingBehavior,
     );
 
     final effectiveStroke = switch (widget.onStrokeStarted) {
@@ -164,7 +156,6 @@ class _DrawState extends State<Draw> {
       widget.onStrokeDrawn(_currentStroke!);
 
       setState(() => _currentStroke = null);
-      _removedStrokes.clear();
     }
   }
 
@@ -172,64 +163,61 @@ class _DrawState extends State<Draw> {
   Widget build(BuildContext context) {
     final converter =
         widget.smoothingFunc ?? SmoothingMode.catmullRom.converter;
-    final detector =
-        widget.intersectionDetector ??
-        IntersectionMode.segmentDistance.detector;
     final strokePainter = widget.strokePainter ?? defaultStrokePainter;
 
     /// strokes to paint (including currently drawing stroke)
     final strokesToPaint = [...widget.strokes, ?_currentStroke];
 
     return SizedBox.expand(
-      child: Listener(
-        onPointerDown: _start,
-        onPointerMove: (event) {
-          if (event.pointer != _activePointerId) {
-            return;
-          }
-
-          _add(event);
-
-          if (_currentStroke?.erasingBehavior == ErasingBehavior.stroke) {
-            final removedStrokes = detector(
-              widget.strokes
-                  .where((stroke) => !_removedStrokes.contains(stroke))
-                  .toList(),
-              _currentStroke!,
-            );
-            if (removedStrokes.isNotEmpty && widget.onStrokesRemoved != null) {
-              widget.onStrokesRemoved!(removedStrokes);
-              _removedStrokes.addAll(removedStrokes);
-            }
-          }
-        },
-        onPointerUp: (event) {
-          if (_activePointerId != event.pointer) return;
-          _activePointerId = null;
-          _complete();
-        },
-        onPointerCancel: (event) {
-          if (_activePointerId != event.pointer) return;
-          _activePointerId = null;
-          _complete();
-        },
-        child: RawGestureDetector(
-          gestures: widget.shouldAbsorb != null
-              ? {
-                  _AbsorbableScaleGestureRecognizer:
-                      GestureRecognizerFactoryWithHandlers<
-                        _AbsorbableScaleGestureRecognizer
-                      >(
-                        () => _AbsorbableScaleGestureRecognizer(
-                          shouldAbsorb: widget.shouldAbsorb!,
-                        ),
-                        (instance) {},
+      child: RawGestureDetector(
+        gestures: widget.shouldAbsorb != null
+            ? {
+                _AbsorbableScaleGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<
+                      _AbsorbableScaleGestureRecognizer
+                    >(
+                      () => _AbsorbableScaleGestureRecognizer(
+                        shouldAbsorb: widget.shouldAbsorb!,
                       ),
-                }
-              : const {},
+                      (instance) {
+                        instance.shouldAbsorb = widget.shouldAbsorb!;
+                      },
+                    ),
+              }
+            : const {},
+        child: Listener(
+          onPointerDown: _start,
+          onPointerMove: (event) {
+            if (event.pointer != _activePointerId) {
+              return;
+            }
+
+            _add(event);
+
+            if (widget.onStrokesSelected != null &&
+                widget.intersectionDetector != null) {
+              final removedStrokes = widget.intersectionDetector!(
+                widget.strokes,
+                _currentStroke!,
+              );
+              if (removedStrokes.isNotEmpty) {
+                widget.onStrokesSelected!(removedStrokes);
+              }
+            }
+          },
+          onPointerUp: (event) {
+            if (_activePointerId != event.pointer) return;
+            _activePointerId = null;
+            _complete();
+          },
+          onPointerCancel: (event) {
+            if (_activePointerId != event.pointer) return;
+            _activePointerId = null;
+            _complete();
+          },
           child: CustomPaint(
             painter: _FreehandPainter(
-              strokesToPaint.where((stroke) => stroke.shouldPaint).toList(),
+              strokesToPaint,
               widget.backgroundColor,
               converter,
               strokePainter,
@@ -244,7 +232,7 @@ class _DrawState extends State<Draw> {
 class _AbsorbableScaleGestureRecognizer extends ScaleGestureRecognizer {
   _AbsorbableScaleGestureRecognizer({required this.shouldAbsorb});
 
-  final bool Function(PointerDownEvent event) shouldAbsorb;
+  bool Function(PointerDownEvent event) shouldAbsorb;
 
   @override
   void addPointer(PointerDownEvent event) {

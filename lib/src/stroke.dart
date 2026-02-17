@@ -70,21 +70,7 @@ class StrokePoint {
       orientation.hashCode;
 }
 
-/// Defines the erasing behavior for a stroke.
-enum ErasingBehavior {
-  /// Normal drawing mode (not erasing)
-  none,
-
-  /// Pixel-level erasing using BlendMode.clear.
-  /// Only erases the overlapping pixels where the eraser stroke passes.
-  /// The stroke itself remains in the stroke list.
-  pixel,
-
-  /// Stroke-level erasing using intersection detection.
-  /// Removes entire strokes that intersect with the eraser stroke.
-  /// Uses the intersection detector to determine which strokes to remove.
-  stroke,
-}
+typedef _Extra = Map<Object, dynamic>;
 
 /// A data class representing a stroke.
 ///
@@ -105,14 +91,8 @@ class Stroke {
   /// Stroke width (base width, can be modified by pressure)
   final double width;
 
-  /// Erasing behavior for this stroke
-  final ErasingBehavior erasingBehavior;
-
-  /// Whether this is an erasing stroke (deprecated, use erasingBehavior instead)
-  bool get isErasing => erasingBehavior != ErasingBehavior.none;
-
-  /// Whether this stroke should be painted on [_FreehandPainter]
-  bool get shouldPaint => erasingBehavior != ErasingBehavior.stroke;
+  /// User-defined additional data.
+  final _Extra? data;
 
   /// Creates a stroke
   Stroke({
@@ -120,7 +100,7 @@ class Stroke {
     required this.points,
     required this.color,
     required this.width,
-    this.erasingBehavior = ErasingBehavior.none,
+    this.data,
   });
 
   /// Creates a new Stroke with new points or metadata
@@ -130,12 +110,12 @@ class Stroke {
     List<StrokePoint>? points,
     Color? color,
     double? width,
-    ErasingBehavior? erasingBehavior,
+    _Extra? data,
   }) => Stroke(
     deviceKind: deviceKind, // deviceKind can't be changed
     points: points ?? List.from(this.points),
     color: color ?? this.color,
     width: width ?? this.width,
-    erasingBehavior: erasingBehavior ?? this.erasingBehavior,
+    data: data ?? this.data,
   );
 }

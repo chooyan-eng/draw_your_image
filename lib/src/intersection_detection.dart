@@ -47,7 +47,6 @@ List<Stroke> detectIntersectionBySegmentDistance(
 
   for (final stroke in strokes) {
     // Skip erasing strokes - only check normal drawing strokes
-    if (stroke.erasingBehavior != ErasingBehavior.none) continue;
 
     if (testStroke.points.length < 2) continue; // Need at least 2 points
 
