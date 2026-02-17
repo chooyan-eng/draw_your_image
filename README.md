@@ -130,7 +130,7 @@ Draw(
 | `strokeColor` | `Color` |  | Default stroke color |
 | `strokeWidth` | `double` |  | Default stroke width |
 | `backgroundColor` | `Color` |  | Canvas background color |
-| `smoothingFunc` | `Path Function(Stroke)` |  | Custom smoothing function |
+| `pathBuilder` | `Path Function(Stroke)` |  | Function to build `Path` from a `Stroke`. Use for smoothing or pressure-sensitive effects |
 | `strokePainter` | `List<Paint> Function(Stroke)` |  | Custom stroke painting function |
 | `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
 | `shouldAbsorb` | `bool Function(PointerDownEvent)` |  | Control whether to absorb pointer events |
@@ -171,24 +171,25 @@ Note that all the parameters are originated in Flutter's `PointerEvent`. See doc
 - `normalizedPressure` automatically adjusts for device-specific pressure ranges
 - Works seamlessly with all input devices (stylus, touch, mouse)
 
-## Smoothing Modes
+## Path Builder Modes
 
-Smoothing algorithm is also customizable. You can choose pre-defined functions below or make your own function.
+Path building algorithm is also customizable. You can choose pre-defined modes below or provide your own `Path Function(Stroke)`.
 
 ```dart
-SmoothingMode.catmullRom.converter  // Smooth curves (default)
-SmoothingMode.none.converter        // No smoothing (straight lines)
+PathBuilderMode.catmullRom.converter        // Smooth curves (default)
+PathBuilderMode.none.converter              // No smoothing (straight lines)
+PathBuilderMode.pressureSensitive.converter // Variable-width based on pressure
 ```
 
 ## Pressure-Sensitive Drawing
 
-Create variable-width strokes that respond to stylus pressure using the built-in `generatePressureSensitivePath` function:
+Create variable-width strokes that respond to stylus pressure using `PathBuilderMode.pressureSensitive`:
 
 ```dart
 Draw(
   strokes: _strokes,
   strokeWidth: 8.0,
-  smoothingFunc: generatePressureSensitivePath,
+  pathBuilder: PathBuilderMode.pressureSensitive.converter,
   onStrokeDrawn: (stroke) => setState(() => _strokes.add(stroke)),
 )
 ```
@@ -211,7 +212,7 @@ Path calligraphyPath(Stroke stroke) {
 }
 
 Draw(
-  smoothingFunc: calligraphyPath,
+  pathBuilder: calligraphyPath,
   // ...
 )
 ```

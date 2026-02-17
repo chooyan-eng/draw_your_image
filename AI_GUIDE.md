@@ -343,7 +343,7 @@ Convert ongoing stroke to a rectangle shape using first and last points.
 ```dart
 Draw(
   strokes: _strokes,
-  smoothingFunc: SmoothingMode.none.converter, // Disable smoothing for sharp corners
+  pathBuilder: PathBuilderMode.none.converter, // Disable smoothing for sharp corners
   onStrokeDrawn: (stroke) {
     setState(() => _strokes.add(stroke));
   },
@@ -451,7 +451,7 @@ The `Draw` widget calls your `strokePainter` function for each stroke and applie
 ```dart
 // Simplified rendering logic
 for (final stroke in strokes) {
-  final path = smoothingFunc(stroke);     // Convert stroke to Path
+  final path = pathBuilder(stroke);       // Build Path from stroke
   final paints = strokePainter(stroke);   // Your custom function
 
   for (final paint in paints) {
@@ -925,7 +925,7 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
         strokeColor: Colors.black,
         strokeWidth: 4.0,
         backgroundColor: Colors.white,
-        smoothingFunc: SmoothingMode.catmullRom.converter,
+        pathBuilder: PathBuilderMode.catmullRom.converter,
         onStrokeDrawn: (stroke) {
           setState(() {
             _strokes = [..._strokes, stroke];
@@ -945,18 +945,19 @@ class _DrawingCanvasState extends State<DrawingCanvas> {
 }
 ```
 
-## Smoothing Options
+## Path Builder Options
 
-Available smoothing modes:
+Available `PathBuilderMode` options:
 
 ```dart
-SmoothingMode.none.converter           // No smoothing
-SmoothingMode.catmullRom.converter     // Catmull-Rom spline (recommended)
+PathBuilderMode.none.converter              // No smoothing
+PathBuilderMode.catmullRom.converter        // Catmull-Rom spline (recommended)
+PathBuilderMode.pressureSensitive.converter // Pressure-sensitive variable width
 ```
 
 ### Pressure-Sensitive Drawing
 
-For variable-width strokes based on stylus pressure, use `generatePressureSensitivePath`:
+For variable-width strokes based on stylus pressure, use `PathBuilderMode.pressureSensitive.converter` (or `generatePressureSensitivePath` directly for custom parameters):
 
 ```dart
 import 'package:draw_your_image/draw_your_image.dart';
@@ -964,7 +965,7 @@ import 'package:draw_your_image/draw_your_image.dart';
 Draw(
   strokes: _strokes,
   strokeWidth: 8.0,
-  smoothingFunc: generatePressureSensitivePath,
+  pathBuilder: PathBuilderMode.pressureSensitive.converter,
   onStrokeDrawn: (stroke) {
     setState(() => _strokes.add(stroke));
   },
@@ -983,7 +984,7 @@ Draw(
 You can also pass custom parameters:
 
 ```dart
-smoothingFunc: (stroke) => generatePressureSensitivePath(
+pathBuilder: (stroke) => generatePressureSensitivePath(
   stroke,
   tension: 0.8,   // Controls curve tightness (default: 0.8)
   segments: 20,   // Interpolation segments between points (default: 20)
@@ -1007,7 +1008,7 @@ Path calligraphyPath(Stroke stroke) {
 }
 
 Draw(
-  smoothingFunc: calligraphyPath,
+  pathBuilder: calligraphyPath,
   // ...
 )
 ```
@@ -1071,7 +1072,7 @@ _strokes = [..._strokes, stroke];
 | `strokeColor` | `Color` | Default stroke color |
 | `strokeWidth` | `double` | Default stroke width |
 | `backgroundColor` | `Color` | Canvas background color |
-| `smoothingFunc` | `Path Function(Stroke)` | Smoothing function |
+| `pathBuilder` | `Path Function(Stroke)` | Function to build `Path` from a `Stroke`. Use for smoothing or pressure-sensitive effects |
 | `strokePainter` | `StrokePainter` | Custom painter function. Returns `List<Paint>` for each stroke |
 | `intersectionDetector` | `IntersectionDetector` | Intersection detection function. Enables `onStrokesSelected` |
 | `shouldAbsorb` | `bool Function(PointerDownEvent)` | Control whether to absorb pointer events from parent widgets |
