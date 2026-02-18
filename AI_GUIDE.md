@@ -1420,6 +1420,105 @@ intersectionDetector: _currentBehavior == ErasingBehavior.stroke
 
 See [example/lib/main.dart](./example/lib/main.dart) for the full working implementation of this pattern.
 
+## Fill
+
+> **Note:** Fill functionality is not provided by this package. However, because the package exposes all stroke data as `List<Stroke>` in your own state, you can implement any region-detection logic you need and wire it into the rendering pipeline using `pathBuilder` and `strokePainter`.
+
+Filling a closed region with color is implemented by combining `Stroke.data`, `pathBuilder`, and `strokePainter`. The key idea is:
+
+1. Detect a tap in fill mode and compute a fill `Path` using any region-detection logic you choose.
+2. Store the computed `Path` in a `Stroke`'s `data` map.
+3. Return that stored `Path` from `pathBuilder`.
+4. Render it as a solid fill in `strokePainter`.
+
+### Step 1 — Tag fill-mode tap strokes
+
+Use `onStrokeStarted` to tag strokes that were started in fill mode. Return `[]` from `strokePainter` for these tagged strokes to keep them invisible while the user is touching the canvas.
+
+```dart
+enum DrawingMode { line, fill }
+
+onStrokeStarted: (newStroke, currentStroke) {
+  if (currentStroke != null) return currentStroke;
+  return _mode == DrawingMode.fill
+      ? newStroke.copyWith(data: {#drawingMode: DrawingMode.fill})
+      : newStroke;
+},
+
+strokePainter: (stroke) {
+  if (stroke.data?[#drawingMode] == DrawingMode.fill) return []; // invisible
+  // ...
+},
+```
+
+### Step 2 — Detect the tap and generate the fill Path
+
+In `onStrokeDrawn`, detect the tagged fill stroke and use `stroke.points.first.position` as the tap position. Run your fill region logic to generate a `Path`, then create a new `Stroke` to hold it:
+
+```dart
+onStrokeDrawn: (stroke) {
+  if (stroke.data?[#drawingMode] == DrawingMode.fill) {
+    if (stroke.points.isEmpty) return;
+    final tapPos = stroke.points.first.position;
+
+    // Compute the fill Path using your preferred algorithm.
+    // See example/lib/pages/fill_demo_page.dart for a ready-to-use implementation.
+    final fillPath = computeFillPath(tapPos, _strokes, _canvasSize);
+    if (fillPath == null) return; // tap was on a stroke boundary
+
+    // Wrap the Path in a Stroke so it participates in undo/redo
+    // and is managed alongside other strokes.
+    final fillStroke = stroke.copyWith(
+      color: _fillColor,
+      data: {#fillPath: fillPath},
+    );
+
+    setState(() {
+      _strokes = [..._strokes, fillStroke];
+    });
+    return;
+  }
+  // Normal stroke handling...
+},
+```
+
+### Step 3 — Return the stored Path from pathBuilder
+
+```dart
+pathBuilder: (stroke) {
+  final fillPath = stroke.data?[#fillPath];
+  return fillPath is Path
+      ? fillPath // bypass smoothing; return pre-computed fill Path as-is
+      : PathBuilderMode.catmullRom.converter(stroke);
+},
+```
+
+### Step 4 — Render the fill stroke
+
+```dart
+strokePainter: (stroke) {
+  if (stroke.data?[#drawingMode] == DrawingMode.fill) return []; // invisible tap stroke
+  if (stroke.data?[#fillPath] is Path) {
+    return [paintWithOverride(stroke, style: PaintingStyle.fill)];
+  }
+  return [paintWithDefault(stroke)];
+},
+```
+
+### Key points
+
+- The fill `Stroke` carries `data: {#fillPath: path}` and exists purely to hold the `Path` in the rendering pipeline and in undo/redo state. Its `points` are not used for drawing.
+- `pathBuilder` must bypass all smoothing for fill strokes and return the pre-computed `Path` directly.
+- `strokePainter` must use `PaintingStyle.fill` (via `paintWithOverride(stroke, style: PaintingStyle.fill)`) for fill strokes. The default `PaintingStyle.stroke` would only outline the path.
+- Because fill strokes live in `_strokes` like any other stroke, undo/redo works without additional code.
+- Only non-fill strokes should be used as boundaries when computing the fill region; filter out strokes with `data[#fillPath] != null` beforehand.
+
+### Fill region detection
+
+The algorithm for deciding _which_ `Path` to generate from a tap position is intentionally not specified here — implement whatever suits your app (pixel-based flood fill, geometric scanline BFS, polygon containment check, etc.).
+
+For a complete working example that uses geometric scanline BFS over `List<Stroke>` coordinate data (no bitmap rendering required), see [example/lib/pages/fill_demo_page.dart](./example/lib/pages/fill_demo_page.dart).
+
 ## Migration from ErasingBehavior / ErasingMode
 
 If you are migrating from a version that used `ErasingBehavior` enum, `erasingBehavior` property on `Draw`/`Stroke`, or `onStrokesRemoved` callback, follow this guide.
