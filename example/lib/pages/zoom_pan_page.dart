@@ -114,7 +114,7 @@ class _ZoomPanPageState extends State<ZoomPanPage> {
             strokeWidth: 4.0,
             backgroundColor: Colors.transparent,
             // For device-specific mode, absorb only stylus events
-            shouldAbsorb: _currentMode == IntegrationMode.deviceSpecific
+            shouldAbsorbScale: _currentMode == IntegrationMode.deviceSpecific
                 ? (event) =>
                     event.kind == PointerDeviceKind.stylus ||
                     event.kind == PointerDeviceKind.invertedStylus

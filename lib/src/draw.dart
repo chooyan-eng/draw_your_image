@@ -61,14 +61,24 @@ class Draw extends StatefulWidget {
   /// This is used when [onStrokesSelected] is provided.
   final IntersectionDetector? intersectionDetector;
 
-  /// Function to determine whether to absorb pan/zoom pointer events.
+  /// Function to determine whether to absorb scale/pan pointer events.
   /// This is useful when using [Draw] inside an [InteractiveViewer] and
-  /// you want to disable pan/zoom while drawing and enable it otherwise.
+  /// you want to disable scale/pan while drawing and enable it otherwise.
   ///
   /// When the function returns true for a pointer down event,
   /// the pointer event will be absorbed by [Draw], preventing
   /// it from being passed to parent widgets like [InteractiveViewer].
-  final bool Function(PointerDownEvent event)? shouldAbsorb;
+  final bool Function(PointerDownEvent event)? shouldAbsorbScale;
+
+  /// Function to determine whether to absorb long press pointer events.
+  /// This is useful when using [Draw] inside a [GestureDetector] with
+  /// [GestureDetector.onLongPressStart] and you want to prevent the long
+  /// press gesture from being recognized by the ancestor widget.
+  ///
+  /// When the function returns true for a pointer down event,
+  /// the pointer event will be absorbed by [Draw], preventing
+  /// it from being passed to parent widgets like [GestureDetector].
+  final bool Function(PointerDownEvent event)? shouldAbsorbLongPress;
 
   const Draw({
     super.key,
@@ -83,7 +93,8 @@ class Draw extends StatefulWidget {
     this.pathBuilder,
     this.strokePainter,
     this.intersectionDetector,
-    this.shouldAbsorb,
+    this.shouldAbsorbScale,
+    this.shouldAbsorbLongPress,
   });
 
   @override
@@ -173,21 +184,32 @@ class _DrawState extends State<Draw> {
 
     return SizedBox.expand(
       child: RawGestureDetector(
-        gestures: widget.shouldAbsorb != null
-            ? {
-                _AbsorbableScaleGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<
-                      _AbsorbableScaleGestureRecognizer
-                    >(
-                      () => _AbsorbableScaleGestureRecognizer(
-                        shouldAbsorb: widget.shouldAbsorb!,
-                      ),
-                      (instance) {
-                        instance.shouldAbsorb = widget.shouldAbsorb!;
-                      },
-                    ),
-              }
-            : const {},
+        gestures: {
+          if (widget.shouldAbsorbScale != null)
+            _AbsorbableScaleGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  _AbsorbableScaleGestureRecognizer
+                >(
+                  () => _AbsorbableScaleGestureRecognizer(
+                    shouldAbsorb: widget.shouldAbsorbScale!,
+                  ),
+                  (instance) {
+                    instance.shouldAbsorb = widget.shouldAbsorbScale!;
+                  },
+                ),
+          if (widget.shouldAbsorbLongPress != null)
+            _AbsorbableLongPressGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<
+                  _AbsorbableLongPressGestureRecognizer
+                >(
+                  () => _AbsorbableLongPressGestureRecognizer(
+                    shouldAbsorb: widget.shouldAbsorbLongPress!,
+                  ),
+                  (instance) {
+                    instance.shouldAbsorb = widget.shouldAbsorbLongPress!;
+                  },
+                ),
+        },
         child: Listener(
           onPointerDown: _start,
           onPointerMove: (event) {
@@ -230,6 +252,26 @@ class _DrawState extends State<Draw> {
       ),
     );
   }
+}
+
+class _AbsorbableLongPressGestureRecognizer extends LongPressGestureRecognizer {
+  _AbsorbableLongPressGestureRecognizer({required this.shouldAbsorb});
+
+  bool Function(PointerDownEvent event) shouldAbsorb;
+
+  @override
+  void addPointer(PointerDownEvent event) {
+    if (shouldAbsorb(event)) {
+      super.addPointer(event);
+    }
+  }
+
+  // LongPressGestureRecognizer.isPointerAllowed() returns false when no
+  // callbacks are set, which prevents this absorber from entering the gesture
+  // arena. Override to always return true so it can compete with ancestor
+  // recognizers. The actual absorb decision is controlled by addPointer().
+  @override
+  bool isPointerAllowed(PointerDownEvent event) => true;
 }
 
 class _AbsorbableScaleGestureRecognizer extends ScaleGestureRecognizer {

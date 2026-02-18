@@ -133,7 +133,8 @@ Draw(
 | `pathBuilder` | `Path Function(Stroke)` |  | Function to build `Path` from a `Stroke`. Use for smoothing or pressure-sensitive effects |
 | `strokePainter` | `List<Paint> Function(Stroke)` |  | Custom stroke painting function |
 | `intersectionDetector` | `IntersectionDetector` |  | Custom intersection detection function |
-| `shouldAbsorb` | `bool Function(PointerDownEvent)` |  | Control whether to absorb pointer events |
+| `shouldAbsorbScale` | `bool Function(PointerDownEvent)` |  | Control whether to absorb scale/pan pointer events from parent widgets like `InteractiveViewer` |
+| `shouldAbsorbLongPress` | `bool Function(PointerDownEvent)` |  | Control whether to absorb long press pointer events from parent widgets like `GestureDetector` |
 
 ### Stroke Properties
 
@@ -295,7 +296,7 @@ The package provides utility functions for creating `Paint` objects:
 
 ## Using with InteractiveViewer
 
-The `shouldAbsorb` callback allows you to control which pointer events are handled by the `Draw` widget versus parent widgets like `InteractiveViewer`. This enables powerful combinations like:
+The `shouldAbsorbScale` callback allows you to control which pointer events are handled by the `Draw` widget versus parent widgets like `InteractiveViewer`. This enables powerful combinations like:
 
 - **Touch for pan/zoom, stylus for drawing**
 - **Device-specific gesture handling**
@@ -305,7 +306,7 @@ The `shouldAbsorb` callback allows you to control which pointer events are handl
 InteractiveViewer(
   child: Draw(
     strokes: _strokes,
-    shouldAbsorb: (event) {
+    shouldAbsorbScale: (event) {
       // Absorb stylus events for drawing, let touch events pass through for pan/zoom
       return event.kind == PointerDeviceKind.stylus ||
              event.kind == PointerDeviceKind.invertedStylus;

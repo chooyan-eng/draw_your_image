@@ -526,7 +526,7 @@ class _UltimateDemoPageState extends State<UltimateDemoPage>
                     pathBuilder: _shapeMode == ShapeMode.freehand
                         ? PathBuilderMode.catmullRom.converter
                         : PathBuilderMode.none.converter,
-                    shouldAbsorb: _enableZoomPan
+                    shouldAbsorbScale: _enableZoomPan
                         ? (event) => event.kind.isStylus
                         : null,
                     onStrokeDrawn: (stroke) {

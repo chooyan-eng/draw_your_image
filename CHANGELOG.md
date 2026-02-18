@@ -1,3 +1,6 @@
+## [0.12.0] - 2026.02.18
+* **BREAKING CHANGE** Renamed `shouldAbsorb` to `shouldAbsorbScale` and added `shouldAbsorbLongPress` for independent control of scale/pan and long press event absorption.
+
 ## [0.11.0] - 2026.02.17
 * **BREAKING CHANGE** Renamed `smoothingFunc` parameter to `pathBuilder`, and `SmoothingMode` enum to `PathBuilderMode`.
 

@@ -1075,7 +1075,8 @@ _strokes = [..._strokes, stroke];
 | `pathBuilder` | `Path Function(Stroke)` | Function to build `Path` from a `Stroke`. Use for smoothing or pressure-sensitive effects |
 | `strokePainter` | `StrokePainter` | Custom painter function. Returns `List<Paint>` for each stroke |
 | `intersectionDetector` | `IntersectionDetector` | Intersection detection function. Enables `onStrokesSelected` |
-| `shouldAbsorb` | `bool Function(PointerDownEvent)` | Control whether to absorb pointer events from parent widgets |
+| `shouldAbsorbScale` | `bool Function(PointerDownEvent)` | Control whether to absorb scale/pan pointer events from parent widgets like `InteractiveViewer` |
+| `shouldAbsorbLongPress` | `bool Function(PointerDownEvent)` | Control whether to absorb long press pointer events from parent widgets like `GestureDetector` |
 | `onStrokeDrawn` | `void Function(Stroke)` | Called when stroke is complete |
 | `onStrokeStarted` | `Stroke? Function(Stroke, Stroke?)` | Called when stroke starts. Control whether to continue, modify, or prevent with return value |
 | `onStrokeUpdated` | `Stroke? Function(Stroke)` | Called when a point is added to current stroke. Enables real-time stroke manipulation |
@@ -1273,9 +1274,9 @@ class _MyWidgetState extends State<MyWidget> {
 **Pros**: Simple, works for all input devices
 **Cons**: Requires state management, always disables pan/zoom while drawing
 
-#### Approach 2: Device-specific absorption with shouldAbsorb (Recommended)
+#### Approach 2: Device-specific absorption with shouldAbsorbScale (Recommended)
 
-Use `shouldAbsorb` to selectively absorb pointer events based on device type. This allows touch for pan/zoom while stylus for drawing:
+Use `shouldAbsorbScale` to selectively absorb pointer events based on device type. This allows touch for pan/zoom while stylus for drawing:
 
 ```dart
 class _MyWidgetState extends State<MyWidget> {
@@ -1287,7 +1288,7 @@ class _MyWidgetState extends State<MyWidget> {
       child: Draw(
         strokes: _strokes,
         // Absorb stylus events, let touch events pass through to InteractiveViewer
-        shouldAbsorb: (event) {
+        shouldAbsorbScale: (event) {
           return event.kind == PointerDeviceKind.stylus ||
                  event.kind == PointerDeviceKind.invertedStylus;
         },
@@ -1320,12 +1321,12 @@ class _MyWidgetState extends State<MyWidget> {
 **Cons**: Requires devices that support both touch and stylus
 
 **Key Points**:
-- `shouldAbsorb` returns `true` to absorb pointer events (prevent from reaching InteractiveViewer)
-- `shouldAbsorb` returns `false` to let pointer events pass through (allow InteractiveViewer to handle)
+- `shouldAbsorbScale` returns `true` to absorb pointer events (prevent from reaching InteractiveViewer)
+- `shouldAbsorbScale` returns `false` to let pointer events pass through (allow InteractiveViewer to handle)
 - Common pattern: absorb stylus, pass through touch
 - Must coordinate with `onStrokeStarted` to ensure consistent behavior
 
-**Important**: When using `shouldAbsorb`, make sure `onStrokeStarted` behavior matches. If you absorb stylus events, you should also handle them in `onStrokeStarted`. If you don't absorb touch events, you should typically return `null` for touch in `onStrokeStarted`.
+**Important**: When using `shouldAbsorbScale`, make sure `onStrokeStarted` behavior matches. If you absorb stylus events, you should also handle them in `onStrokeStarted`. If you don't absorb touch events, you should typically return `null` for touch in `onStrokeStarted`.
 
 ## Erasing and Stroke Selection
 
