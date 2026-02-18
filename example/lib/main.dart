@@ -6,6 +6,7 @@ import 'package:example/widgets/demo_toolbar.dart';
 import 'package:example/widgets/stroke_width_slider.dart';
 import 'package:example/widgets/tool_button.dart';
 import 'package:flutter/material.dart';
+import 'pages/fill_demo_page.dart';
 import 'pages/pressure_demo_page.dart';
 import 'pages/device_control_page.dart';
 import 'pages/stroke_editing_page.dart';
@@ -243,6 +244,14 @@ class DemoList extends StatelessWidget {
       appBar: AppBar(title: const Text('Draw Your Image Examples')),
       body: ListView(
         children: [
+          _buildDemoTile(
+            context,
+            title: 'Fill',
+            subtitle: 'Flood-fill enclosed regions with a tap',
+            icon: Icons.format_color_fill,
+            color: Colors.deepOrange,
+            page: const FillDemoPage(),
+          ),
           _buildDemoTile(
             context,
             title: 'Pressure Sensitive Drawing',
