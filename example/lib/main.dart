@@ -5,7 +5,7 @@ import 'package:example/widgets/color_picker.dart';
 import 'package:example/widgets/demo_toolbar.dart';
 import 'package:example/widgets/stroke_width_slider.dart';
 import 'package:example/widgets/tool_button.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'pages/fill_demo_page.dart';
 import 'pages/pressure_demo_page.dart';
 import 'pages/device_control_page.dart';

@@ -2,7 +2,7 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:draw_your_image/draw_your_image.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import '../constants/demo_colors.dart';
 import '../utils/undo_redo_manager.dart';

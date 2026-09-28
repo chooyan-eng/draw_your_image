@@ -1,3 +1,6 @@
+## [0.12.1] - 2026.09.28
+* Removed dependency on `material.dart` / `cupertino.dart`. The package now depends only on `widgets.dart`.
+
 ## [0.12.0] - 2026.02.18
 * **BREAKING CHANGE** Renamed `shouldAbsorb` to `shouldAbsorbScale` and added `shouldAbsorbLongPress` for independent control of scale/pan and long press event absorption.
 
