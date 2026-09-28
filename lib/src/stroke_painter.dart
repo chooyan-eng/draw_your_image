@@ -1,5 +1,5 @@
 import 'package:draw_your_image/draw_your_image.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A function that takes a [Stroke] and returns a
 /// list of [Paint] objects to be used for rendering the stroke.
@@ -39,7 +39,7 @@ Paint paintWithOverride(
 /// A utility function to create a [Paint] object for an erasing stroke with default stroke properties.
 Paint eraseWithDefault(Stroke stroke) {
   return _paint(
-    strokeColor: Colors.transparent,
+    strokeColor: const Color(0x00000000),
     strokeWidth: stroke.width,
     strokeCap: StrokeCap.round,
     style: PaintingStyle.stroke,

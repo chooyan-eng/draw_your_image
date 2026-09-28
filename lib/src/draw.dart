@@ -3,7 +3,7 @@ import 'package:draw_your_image/src/path_builder.dart';
 import 'package:draw_your_image/src/stroke.dart';
 import 'package:draw_your_image/src/stroke_painter.dart';
 import 'package:flutter/gestures.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 /// A widget representing a canvas for drawing.
 class Draw extends StatefulWidget {
@@ -87,8 +87,8 @@ class Draw extends StatefulWidget {
     this.onStrokesSelected,
     this.onStrokeStarted,
     this.onStrokeUpdated,
-    this.backgroundColor = Colors.white,
-    this.strokeColor = Colors.black,
+    this.backgroundColor = const Color(0xFFFFFFFF),
+    this.strokeColor = const Color(0xFF000000),
     this.strokeWidth = 4,
     this.pathBuilder,
     this.strokePainter,
